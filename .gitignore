@@ -1,0 +1,22 @@
+# Flutter/Dart bawaan
+.dart_tool/
+.flutter-plugins
+.flutter-plugins-dependencies
+.packages
+build/
+.idea/
+*.iml
+
+# Platform yang tidak dipakai
+ios/
+macos/
+windows/
+linux/
+web/
+
+# Sesuai ketentuan portofolio - hanya lib, test, screenshots, README yang di-push
+android/
+pubspec.yaml
+pubspec.lock
+analysis_options.yaml
+.metadata
