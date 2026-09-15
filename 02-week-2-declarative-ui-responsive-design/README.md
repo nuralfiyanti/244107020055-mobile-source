@@ -354,3 +354,6 @@ Breakpoint yang terlalu kecil membuat layout dipaksa menjadi 2 kolom bahkan pada
 **4. Apa yang Anda verifikasi dari rekomendasi AI setelah tugas inti selesai?**
 
 Setelah tugas inti (dashboard *Academic Overview*) selesai dan berjalan, rekomendasi AI diverifikasi lewat tiga cara: menjalankan `flutter analyze` untuk memastikan tidak ada *error*/*warning* baru (hasilnya `No issues found!`), menjalankan `flutter test` untuk memastikan perilaku responsif benar-benar terbukti secara otomatis (hasilnya `All tests passed!`, setelah memperbaiki `find.byType(Card)` yang awalnya menemukan 4 `Card` sekaligus alih-alih 1), dan menerapkan langsung saran perbaikan `ExcludeSemantics` dari audit prompt verifikasi ke kode `DashboardPage` yang sebenarnya, bukan sekadar mencatatnya sebagai teori. Proses ini penting karena rekomendasi AI yang terdengar benar secara konsep belum tentu langsung cocok diterapkan mentah-mentah ke kode yang sudah ada — seperti kasus `find.byType(Card)` yang perlu disesuaikan lagi (`.first`) setelah diuji nyata di project ini. 
+
+</blockquote>
+</details>
