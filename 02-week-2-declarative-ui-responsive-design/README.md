@@ -326,7 +326,7 @@ Sempat ditemukan error `Bad state: Too many elements` karena `find.byType(Card)`
 
 Kode: <br>
 ![alt text](<screenshots/Screenshot 2026-09-15 065352.png>)<br>
-Hasil `flutter test`:
+Hasil `flutter test`: <br>
 ![alt text](<screenshots/Screenshot 2026-09-15 065423.png>) <br>
 
 </blockquote>
