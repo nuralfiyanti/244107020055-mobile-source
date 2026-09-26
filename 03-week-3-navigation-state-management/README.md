@@ -108,3 +108,45 @@ Dicoba juga menandai salah satu tugas selesai dengan menekan checkbox-nya — te
 <blockquote>
 
 ## Ringkasan
+Banyak state berasal dari proses asinkron (membaca database, memanggil API), sehingga UI harus bisa menampilkan tiga kemungkinan kondisi: *loading* (proses berjalan), *error* (gagal), dan *success* (data siap). Riverpod menyediakan `AsyncValue<T>` yang memodelkan ketiga kondisi ini dalam satu tipe, dipasangkan dengan `AsyncNotifier` untuk mengelola state asinkron dan `AsyncValue.guard` untuk menangkap exception secara otomatis tanpa `try/catch` manual yang tersebar.
+
+---
+
+## Praktikum 3 — Uji Ketiga State
+
+### Kode Provider (`lib/providers/products_provider.dart`)
+![alt text](<screenshots/Screenshot 2026-09-26 222551.png>) <br>
+
+### Kode UI (`lib/pages/product_page.dart`)
+![alt text](<screenshots/Screenshot 2026-09-26 222857.png>) <br>
+
+### 1. Salin kode di atas ke project ToDo Anda (atau project terpisah) dan jalankan. Amati tampilan loading selama 2 detik pertama.
+Setelah 2 detik loading, data berhasil dimuat dan ditampilkan sebagai list produk. <br>
+![alt text](<screenshots/WhatsApp Image 2026-09-26 at 22.32.08.jpeg>) <br>
+![alt text](<screenshots/WhatsApp Image 2026-09-26 at 22.32.08 (1).jpeg>) <br>
+
+### 2. Ubah build() sementara untuk melempar error: throw Exception('Gagal terhubung ke server');. Jalankan dan amati UI error beserta tombol Coba lagi.
+Before `build()` :<br>
+![alt text](<screenshots/Screenshot 2026-09-26 223620.png>) <br>
+
+After `throw Exception('Gagal terhubung ke server') ` : <br>
+![alt text](<screenshots/Screenshot 2026-09-26 225920.png>) <br>
+
+Muncul error : <br>
+![alt text](<screenshots/WhatsApp Image 2026-09-26 at 22.57.12.jpeg>) <br>
+
+### 3. Tekan tombol Coba lagi, ref.invalidate membuat provider dijalankan ulang. Pulihkan kode, pastikan state success tampil.
+Di halaman Produk yang menampilkan pesan error, tap tombol 'Coba lagi'. muncul loading lagi selama 2 detik, lalu error lagi karena memang masih `throw Exception`, tombolnya hanya menjalankan ulang `build()`, bukan memperbaiki penyebabnya. <br>
+
+Maka berikut untuk tampilan build ulang, maka akan muncul tampilan seperti sebelumnya. <br>
+![alt text](<screenshots/Screenshot 2026-09-26 225920.png>) <br>
+Menjadi : <br>
+![alt text](<screenshots/Screenshot 2026-09-26 223620.png>) <br>
+Hsilnya : <br>
+![alt text](<screenshots/WhatsApp Image 2026-09-26 at 22.32.08 (1).jpeg>) <br>
+
+### 4. Refleksikan: mengapa menampilkan ulang data lama (stale data) dengan indikator refresh kadang lebih baik daripada mengosongkan layar? Kapan pola itu penting?
+Mengosongkan layar saat *refresh* membuat pengguna kehilangan akses ke data yang sebenarnya masih relevan, dan terasa lambat karena harus menunggu ulang dari nol. Menampilkan data lama sambil memberi indikator refresh kecil (misalnya `RefreshProgressIndicator`) jauh lebih nyaman — pengguna tetap bisa membaca data lama sambil menunggu data baru siap. Pola ini penting terutama untuk data yang jarang berubah (misalnya daftar produk) atau saat refresh berjalan otomatis di background (*pull-to-refresh*, polling), karena pengguna tidak boleh kehilangan informasi yang sudah mereka punya hanya karena sistem sedang memperbarui data. <br>
+
+</blockquote>
+</details>
