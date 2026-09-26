@@ -146,7 +146,7 @@ Hsilnya : <br>
 ![alt text](<screenshots/WhatsApp Image 2026-09-26 at 22.32.08 (1).jpeg>) <br>
 
 ### 4. Refleksikan: mengapa menampilkan ulang data lama (stale data) dengan indikator refresh kadang lebih baik daripada mengosongkan layar? Kapan pola itu penting?
-Mengosongkan layar saat *refresh* membuat pengguna kehilangan akses ke data yang sebenarnya masih relevan, dan terasa lambat karena harus menunggu ulang dari nol. Menampilkan data lama sambil memberi indikator refresh kecil (misalnya `RefreshProgressIndicator`) jauh lebih nyaman — pengguna tetap bisa membaca data lama sambil menunggu data baru siap. Pola ini penting terutama untuk data yang jarang berubah (misalnya daftar produk) atau saat refresh berjalan otomatis di background (*pull-to-refresh*, polling), karena pengguna tidak boleh kehilangan informasi yang sudah mereka punya hanya karena sistem sedang memperbarui data. <br>
+Mengosongkan layar saat *refresh* membuat pengguna kehilangan akses ke data yang sebenarnya masih relevan, dan terasa lambat karena harus menunggu ulang dari nol. Menampilkan data lama sambil memberi indikator refresh kecil (misalnya `RefreshProgressIndicator`) pengguna tetap bisa membaca data lama sambil menunggu data baru siap. Pola ini penting terutama untuk data yang jarang berubah (misalnya daftar produk) atau saat refresh berjalan otomatis di background (*pull-to-refresh*, polling), karena pengguna tidak boleh kehilangan informasi yang sudah mereka punya hanya karena sistem sedang memperbarui data. <br>
 
 </blockquote>
 </details>
