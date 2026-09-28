@@ -1,11 +1,6 @@
 import 'dart:math';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-
-class StatItem {
-  const StatItem(this.label, this.value);
-  final String label;
-  final int value;
-}
+import '../models/stat_item.dart';
 
 class StatsNotifier extends AsyncNotifier<List<StatItem>> {
   @override

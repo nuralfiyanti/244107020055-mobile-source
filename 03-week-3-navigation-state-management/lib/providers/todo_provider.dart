@@ -1,13 +1,5 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-
-class Todo {
-  Todo(this.title, {this.done = false});
-  final String title;
-  final bool done;
-
-  Todo copyWith({String? title, bool? done}) =>
-      Todo(title ?? this.title, done: done ?? this.done);
-}
+import '../models/todo.dart';
 
 class TodoListNotifier extends Notifier<List<Todo>> {
   @override

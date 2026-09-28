@@ -1,8 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 import '../providers/todo_provider.dart';
-import 'product_page.dart';
-import 'stats_page.dart';
 
 class TodoPage extends ConsumerWidget {
   const TodoPage({super.key});
@@ -17,17 +16,11 @@ class TodoPage extends ConsumerWidget {
         actions: [
           IconButton(
             icon: const Icon(Icons.shopping_cart),
-            onPressed: () => Navigator.push(
-              context,
-              MaterialPageRoute(builder: (context) => const ProductPage()),
-            ),
+            onPressed: () => context.push('/todo/products'),
           ),
           IconButton(
             icon: const Icon(Icons.bar_chart),
-            onPressed: () => Navigator.push(
-              context,
-              MaterialPageRoute(builder: (context) => const StatsPage()),
-            ),
+            onPressed: () => context.push('/todo/stats'),
           ),
         ],
       ),
