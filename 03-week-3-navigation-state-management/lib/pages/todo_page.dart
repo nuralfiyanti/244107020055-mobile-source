@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../providers/todo_provider.dart';
+import '../widgets/todo_tile.dart';
 
 class TodoPage extends ConsumerWidget {
   const TodoPage({super.key});
@@ -9,6 +10,7 @@ class TodoPage extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final todos = ref.watch(todoListProvider);
+    final incomplete = ref.watch(incompleteTodosProvider);
 
     return Scaffold(
       appBar: AppBar(
@@ -16,38 +18,39 @@ class TodoPage extends ConsumerWidget {
         actions: [
           IconButton(
             icon: const Icon(Icons.shopping_cart),
-            onPressed: () => context.push('/todo/products'),
+            onPressed: () => context.push('/products'),
           ),
           IconButton(
-            icon: const Icon(Icons.bar_chart),
-            onPressed: () => context.push('/todo/stats'),
+            icon: const Icon(Icons.list_alt),
+            onPressed: () => context.push('/home'),
           ),
         ],
       ),
-      body: todos.isEmpty
-          ? const Center(child: Text('Belum ada tugas'))
-          : ListView.builder(
-              itemCount: todos.length,
-              itemBuilder: (context, index) => ListTile(
-                leading: Checkbox(
-                  value: todos[index].done,
-                  onChanged: (_) =>
-                      ref.read(todoListProvider.notifier).toggle(index),
-                ),
-                title: Text(
-                  todos[index].title,
-                  style: TextStyle(
-                      decoration: todos[index].done
-                          ? TextDecoration.lineThrough
-                          : null),
-                ),
-                trailing: IconButton(
-                  icon: const Icon(Icons.delete),
-                  onPressed: () =>
-                      ref.read(todoListProvider.notifier).remove(index),
-                ),
-              ),
+      body: Column(
+        children: [
+          Padding(
+            padding: const EdgeInsets.all(12),
+            child: Text(
+              'Tugas belum selesai: ${incomplete.length} dari ${todos.length}',
+              style: Theme.of(context).textTheme.bodyMedium,
             ),
+          ),
+          Expanded(
+            child: todos.isEmpty
+                ? const Center(child: Text('Belum ada tugas'))
+                : ListView.builder(
+                    itemCount: todos.length,
+                    itemBuilder: (context, index) => TodoTile(
+                      todo: todos[index],
+                      onToggle: (_) =>
+                          ref.read(todoListProvider.notifier).toggle(index),
+                      onDelete: () =>
+                          ref.read(todoListProvider.notifier).remove(index),
+                    ),
+                  ),
+          ),
+        ],
+      ),
       floatingActionButton: FloatingActionButton(
         onPressed: () => _showAddDialog(context, ref),
         child: const Icon(Icons.add),

@@ -18,3 +18,10 @@ class TodoListNotifier extends Notifier<List<Todo>> {
 
 final todoListProvider =
     NotifierProvider<TodoListNotifier, List<Todo>>(TodoListNotifier.new);
+
+// Provider turunan: hanya menampilkan tugas yang belum selesai.
+// Otomatis ikut update setiap kali todoListProvider berubah.
+final incompleteTodosProvider = Provider<List<Todo>>((ref) {
+  final todos = ref.watch(todoListProvider);
+  return todos.where((todo) => !todo.done).toList();
+});

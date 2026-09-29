@@ -1,0 +1,32 @@
+import 'package:flutter/material.dart';
+import '../models/todo.dart';
+
+class TodoTile extends StatelessWidget {
+  const TodoTile({
+    required this.todo,
+    required this.onToggle,
+    required this.onDelete,
+    super.key,
+  });
+
+  final Todo todo;
+  final ValueChanged<bool?> onToggle;
+  final VoidCallback onDelete;
+
+  @override
+  Widget build(BuildContext context) {
+    return ListTile(
+      leading: Checkbox(value: todo.done, onChanged: onToggle),
+      title: Text(
+        todo.title,
+        style: TextStyle(
+          decoration: todo.done ? TextDecoration.lineThrough : null,
+        ),
+      ),
+      trailing: IconButton(
+        icon: const Icon(Icons.delete),
+        onPressed: onDelete,
+      ),
+    );
+  }
+}

@@ -12,7 +12,7 @@ class HomePage extends StatelessWidget {
         actions: [
           IconButton(
             icon: const Icon(Icons.checklist),
-            onPressed: () => context.go('/todo'),
+            onPressed: () => context.go('/'),
           ),
         ],
       ),
@@ -20,7 +20,7 @@ class HomePage extends StatelessWidget {
         itemCount: 10,
         itemBuilder: (context, index) => ListTile(
           title: Text('Item ${index + 1}'),
-          onTap: () => context.go('/detail/${index + 1}'),
+          onTap: () => context.go('/home/detail/${index + 1}'),
         ),
       ),
     );

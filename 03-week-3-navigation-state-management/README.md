@@ -158,15 +158,10 @@ Mengosongkan layar saat *refresh* membuat pengguna kehilangan akses ke data yang
 <br>
 <blockquote>
 
-<details>
-<summary><b>5. AI Challenge</b></summary>
-
 ## Peran AI pada Codelab Ini
-
 Untuk materi navigasi dan state management, AI boleh digunakan sebagai *co-developer* untuk membantu membuat boilerplate, tetapi tetap wajib dibaca, dijelaskan, diverifikasi, diperbaiki, dan diuji hasilnya. Nilai bukan pada banyaknya kode yang dihasilkan AI, melainkan pada kualitas prompt, verifikasi, dan dokumentasi.
 
 # AI Challenge — StatsPage 
-
 **Prompt yang diajukan:**
 > "Buatkan halaman Flutter bernama StatsPage menggunakan flutter_riverpod. Requirements: ConsumerWidget dengan satu AsyncNotifierProvider yang mensimulasikan pengambilan data statistik (delay 2 detik, kadang gagal 30%). UI harus menangani loading (spinner), error (pesan + tombol retry), dan success (ListView 3 item). Berikan unit test untuk notifier-nya. Jelaskan setiap bagian kode dalam komentar."
 
@@ -277,10 +272,8 @@ void main() {
 ```
 
 ## 4. Tombol Akses ke StatsPage
-
 Ditambahkan `IconButton` baru di `AppBar` `TodoPage`, sejajar dengan tombol keranjang produk, untuk membuka `StatsPage`.
-
-![alt text](<../screenshots/WhatsApp Image 2026-09-28 at 10.00.44.jpeg>)
+![alt text](<screenshots/WhatsApp Image 2026-09-28 at 10.00.44.jpeg>) <br>
 
 ## AI Verification Checklist
 
@@ -298,9 +291,188 @@ Ditambahkan `IconButton` baru di `AppBar` `TodoPage`, sejajar dengan tombol kera
 
 4. **Bukti Verifikasi:**
    - `flutter analyze`: 0 peringatan/error (*No issues found*).
+      ![alt text](<screenshots/Screenshot 2026-09-29 145726.png>) <br>
    - `flutter test`: konsisten *All tests passed* pada percobaan berulang setelah perbaikan `container.listen` diterapkan.
+      ![alt text](<screenshots/Screenshot 2026-09-28 094640.png>) <br>
 
-![alt text](<../screenshots/Screenshot 2026-09-28 094640.png>)
-
+</blockquote>
 </details>
+
+<br>
+
+<details>
+<summary><h3>6. Refactoring dan testing/h3></summary>
+<br>
+<blockquote>
+
+## Refactoring Challenge
+
+### 1. Ekstrak `TodoTile`
+
+Item pada list ToDo yang sebelumnya ditulis langsung di dalam `ListView.builder` (sebagai `ListTile` manual) diekstrak menjadi widget terpisah `TodoTile` di `lib/widgets/todo_tile.dart`, sehingga `build()` di `TodoPage` menjadi lebih pendek dan `TodoTile` bisa diuji secara terpisah dari halaman induknya.
+
+```dart
+class TodoTile extends StatelessWidget {
+  const TodoTile({
+    required this.todo,
+    required this.onToggle,
+    required this.onDelete,
+    super.key,
+  });
+
+  final Todo todo;
+  final ValueChanged<bool?> onToggle;
+  final VoidCallback onDelete;
+
+  @override
+  Widget build(BuildContext context) {
+    return ListTile(
+      leading: Checkbox(value: todo.done, onChanged: onToggle),
+      title: Text(
+        todo.title,
+        style: TextStyle(
+          decoration: todo.done ? TextDecoration.lineThrough : null,
+        ),
+      ),
+      trailing: IconButton(
+        icon: const Icon(Icons.delete),
+        onPressed: onDelete,
+      ),
+    );
+  }
+}
+```
+
+### 2. Provider Turunan untuk Filter
+
+Ditambahkan `incompleteTodosProvider` di `lib/providers/todo_provider.dart` — provider turunan yang membaca `todoListProvider` dan mengembalikan hanya tugas yang belum selesai:
+
+```dart
+final incompleteTodosProvider = Provider<List<Todo>>((ref) {
+  final todos = ref.watch(todoListProvider);
+  return todos.where((todo) => !todo.done).toList();
+});
+```
+
+Provider ini dipakai di `TodoPage` untuk menampilkan ringkasan "Tugas belum selesai: X dari Y" di atas list, yang otomatis ikut update setiap kali status tugas berubah, tanpa perlu logika filter ditulis manual di dalam widget.
+
+### 3. Integrasi GoRouter + NavigationBar
+
+Aplikasi ToDo diintegrasikan dengan `GoRouter` memakai `ShellRoute`, sehingga `NavigationBar` (Tugas / Statistik) tetap persisten di halaman ToDo maupun Statistik tanpa perlu ditulis ulang di tiap halaman:
+
+```dart
+final _router = GoRouter(
+  initialLocation: '/',
+  routes: [
+    // Halaman dengan NavigationBar: ToDo (/) dan Statistik (/stats)
+    ShellRoute(
+      builder: (context, state, child) => ScaffoldWithNav(child: child),
+      routes: [
+        GoRoute(path: '/', builder: (context, state) => const TodoPage()),
+        GoRoute(path: '/stats', builder: (context, state) => const StatsPage()),
+      ],
+    ),
+    // Halaman tanpa NavigationBar
+    GoRoute(path: '/products', builder: (context, state) => const ProductPage()),
+    // Praktikum 1 (dipindah dari '/' ke '/home')
+    GoRoute(
+      path: '/home',
+      builder: (context, state) => const HomePage(),
+      routes: [
+        GoRoute(
+          path: 'detail/:id',
+          builder: (context, state) => DetailPage(id: state.pathParameters['id']!),
+        ),
+      ],
+    ),
+  ],
+);
+
+class ScaffoldWithNav extends StatelessWidget {
+  const ScaffoldWithNav({required this.child, super.key});
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    final loc = GoRouterState.of(context).uri.path;
+    return Scaffold(
+      body: child,
+      bottomNavigationBar: NavigationBar(
+        selectedIndex: loc.startsWith('/stats') ? 1 : 0,
+        onDestinationSelected: (i) => context.go(i == 0 ? '/' : '/stats'),
+        destinations: const [
+          NavigationDestination(icon: Icon(Icons.checklist), label: 'Tugas'),
+          NavigationDestination(icon: Icon(Icons.bar_chart), label: 'Statistik'),
+        ],
+      ),
+    );
+  }
+}
+```
+
+**Penyesuaian struktur route:** Karena `ToDo` sekarang menjadi halaman utama (`/`), Praktikum 1 (Home & Detail dari section 2) dipindah ke `/home` dan `/home/detail/:id`. Akses antar-halaman diselesaikan lewat ikon di `AppBar`: ikon keranjang (ToDo → Produk), ikon daftar (ToDo → Home), dan ikon checklist (Home → ToDo).
+
+Todo: <br>
+![alt text](<screenshots/WhatsApp Image 2026-09-29 at 14.49.36.jpeg>) <br>
+Status: <br>
+![alt text](<screenshots/WhatsApp Image 2026-09-29 at 14.49.37 (1).jpeg>) <br>
+Produk: <br>
+![alt text](<screenshots/WhatsApp Image 2026-09-29 at 14.49.37.jpeg>) <br>
+Home: <br>
+![alt text](<screenshots/WhatsApp Image 2026-09-29 at 14.49.52.jpeg>) <br>
+---
+
+## Testing
+
+Widget test baru ditambahkan di `test/todo_page_test.dart` untuk memastikan **UI bereaksi terhadap perubahan state provider** (bukan cuma menguji logika provider secara terisolasi seperti `stats_provider_test.dart`):
+
+```dart
+import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_test/flutter_test.dart';
+import 'package:week3_navigation/pages/todo_page.dart';
+
+void main() {
+  testWidgets('menambah tugas baru', (tester) async {
+    await tester.pumpWidget(
+      const ProviderScope(
+        child: MaterialApp(home: TodoPage()),
+      ),
+    );
+
+    expect(find.text('Belum ada tugas'), findsOneWidget);
+
+    await tester.tap(find.byIcon(Icons.add));
+    await tester.pumpAndSettle();
+
+    await tester.enterText(find.byType(TextField), 'Kerjakan PR minggu 3');
+    await tester.tap(find.text('Tambah'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Kerjakan PR minggu 3'), findsOneWidget);
+  });
+}
+```
+
+**Temuan saat pengujian:** Percobaan pertama gagal dengan error `Expected: exactly one matching candidate, Actual: ... Found 2 widgets`. Penyebabnya, setelah tombol "Tambah" ditekan, `tester.pump()` hanya memajukan **satu frame**, sementara animasi dialog menutup belum selesai — sehingga dalam satu frame yang sama masih ada dua widget dengan teks yang sama (`TextField` di dialog yang belum sepenuhnya hilang, dan item baru yang sudah tampil di list). Diperbaiki dengan mengganti `tester.pump()` menjadi `tester.pumpAndSettle()`, yang terus memproses frame sampai seluruh animasi benar-benar selesai sebelum pengecekan dilakukan.
+
+---
+
+## Verifikasi
+`flutter analyze`:  <br>
+![alt text](<screenshots/Screenshot 2026-09-29 145726.png>) <br>
+
+`flutter test` : <br>
+![alt text](<screenshots/Screenshot 2026-09-29 145726.png>) <br>
+
+</blockquote>
+</details>
+
+<br>
+
+<details>
+<summary><h3>7. Tugas, refleksi, dan referensi</h3></summary>
+<br>
+<blockquote>
+
 
