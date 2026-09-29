@@ -475,4 +475,32 @@ void main() {
 <br>
 <blockquote>
 
+## Refleksi
 
+**1. Kapan `setState` masih cukup, dan kapan state harus naik ke Riverpod?**
+
+`setState` masih cukup ketika state hanya dipakai dan berubah di dalam satu widget saja, tanpa perlu dibaca atau diubah dari widget/halaman lain — misalnya animasi lokal atau toggle tampilan sementara. State perlu naik ke Riverpod ketika data harus dibagi antar banyak halaman (seperti daftar ToDo yang ditampilkan di `TodoPage` tapi juga perlu diakses logikanya di tempat lain), atau ketika state harus tetap hidup meski widget yang menampilkannya sudah dilepas dari tree (misalnya berpindah halaman lewat GoRouter tapi data ToDo tidak boleh hilang).
+
+**2. Apa perbedaan `context.go` dan `context.push`, dan kapan masing-masing tepat digunakan?**
+
+`context.go` mengganti lokasi di stack navigasi — cocok untuk perpindahan antar tab/halaman setara (seperti NavigationBar Tugas ↔ Statistik), karena tidak menumpuk halaman lama di stack dan tombol back tidak akan kembali ke tab sebelumnya secara berurutan. `context.push` menumpuk halaman baru di atas stack yang sudah ada — cocok untuk navigasi "masuk lebih dalam" (seperti dari ToDo ke Produk atau ke Home), karena tombol back sistem akan mengembalikan pengguna persis ke halaman asalnya.
+
+**3. Bagaimana `AsyncValue` mencegah bug dibanding tiga boolean terpisah?**
+
+Dengan tiga boolean terpisah (`isLoading`, `hasError`, `hasData`), kombinasi yang tidak valid bisa terjadi tanpa disadari — misalnya `isLoading` dan `hasError` sama-sama `true` di saat bersamaan karena lupa direset. `AsyncValue<T>` memaksa hanya **satu** dari tiga kondisi (`loading`, `error`, `data`) yang aktif dalam satu waktu lewat satu tipe data, dan `.when()` mewajibkan ketiganya ditangani secara eksplisit — kalau lupa menangani satu kondisi, kompiler akan menandainya, bukan baru ketahuan saat aplikasi berjalan.
+
+**4. Bagian mana dari hasil AI yang Anda perbaiki, dan mengapa?**
+
+Unit test `stats_provider_test.dart` hasil AI awalnya tidak menyertakan `container.listen(statsProvider, (_, __) {})`. Tanpa baris ini, `ProviderContainer` pada test murni (tanpa widget tree) bisa membuang provider di tengah proses `build()` asinkron yang belum selesai — ditemukan langsung lewat percobaan `flutter test` berulang kali, di mana test lolos 2 kali lalu tiba-tiba *timeout* 30 detik dengan error `disposed during loading state`. Perbaikan `container.listen(...)` memastikan provider tetap aktif sampai prosesnya benar-benar selesai, dan setelah itu test konsisten lolos tanpa timeout.
+
+## Referensi
+
+- [Slide: Navigation & State Management](https://jti-polinema.github.io/flutter-codelab/03-minggu-3-navigation-state-management/)
+- [Flutter: Navigation overview](https://docs.flutter.dev/ui/navigation)
+- [GoRouter package](https://pub.dev/packages/go_router)
+- [Riverpod: Getting started](https://riverpod.dev/docs/introduction/getting_started)
+- [Riverpod: AsyncNotifier dan AsyncValue](https://riverpod.dev/docs/essentials/side_effects)
+- [Learn Dart in Y Minutes](https://learnxinyminutes.com/dart/)
+
+</blockquote>
+</details>
