@@ -301,7 +301,7 @@ Ditambahkan `IconButton` baru di `AppBar` `TodoPage`, sejajar dengan tombol kera
 <br>
 
 <details>
-<summary><h3>6. Refactoring dan testing/h3></summary>
+<summary><h3>6. Refactoring dan testing</h3></summary>
 <br>
 <blockquote>
 
