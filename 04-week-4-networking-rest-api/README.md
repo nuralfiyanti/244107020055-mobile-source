@@ -139,3 +139,14 @@ Sesudah: <br>
 ![alt text](<screenshots/WhatsApp Image 2026-10-05 at 18.48.10.jpeg>) <br>
 ![alt text](<screenshots/WhatsApp Image 2026-10-05 at 18.48.11.jpeg>) <br>
 
+</blockquote>
+</details>
+
+<br>
+
+<details>
+<summary><h3>6. AI Challenge</h3></summary>
+<br>
+<blockquote>
+
+
