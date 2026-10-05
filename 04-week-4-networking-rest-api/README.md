@@ -7,7 +7,7 @@
 ## LAPORAN PRAKTIKUM WEEK04
 
 <details>
-<summary><h3>2. Konsep HTTP, REST, dan JSON<</h3></summary>
+<summary><h3>2. Konsep HTTP, REST, dan JSON</h3></summary>
 <br>
 <blockquote>
 
