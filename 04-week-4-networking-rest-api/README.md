@@ -92,6 +92,50 @@ Repository tidak menampilkan UI apa pun dan tidak menangkap exception menjadi ni
 ![alt text](<screenshots/WhatsApp Image 2026-10-05 at 16.34.27.jpeg>) <br>
 
 3. Sementara ubah baseUrl menjadi URL salah, amati pesan error koneksi. Kembalikan setelah uji. <br>
+Sebelum: <br>
+![alt text](<screenshots/Screenshot 2026-10-05 181742.png>) <br>
+
+Sesudah: <br>
 ![alt text](<screenshots/Screenshot 2026-10-05 164123.png>) <br>
 ![alt text](<screenshots/WhatsApp Image 2026-10-05 at 16.43.26.jpeg>) <br>
+
+</blockquote>
+</details>
+
+<br>
+
+<details>
+<summary><h3>5. Praktikum 3: Pagination dasar</h3></summary>
+<br>
+<blockquote>
+
+## Ringkasan
+API dengan data besar tidak dikirim sekaligus, melainkan per halaman. JSONPlaceholder mendukung query ?_page=N&_limit=M. Strategi UI: infinite scroll, muat halaman berikut saat pengguna mendekati ujung list, tampilkan indikator kecil di bawah tanpa menghapus data lama.
+
+### 7. Repository paginated (`Tambahkan method berikut ke PostRepository`)
+![alt text](<screenshots/Screenshot 2026-10-05 171612.png>) <br>
+
+### 8. Notifier dengan state halaman (`Lanjutkan lib/data/paged_posts.dart`)
+![alt text](<screenshots/Screenshot 2026-10-05 171845.png>) <br>
+
+### 8. Notifier dengan state halaman (lanjutan)
+![alt text](<screenshots/Screenshot 2026-10-05 172326.png>) <br>
+![alt text](<screenshots/Screenshot 2026-10-05 172336.png>) <br>
+
+`if (state.isLoadingMore || !state.hasMore) return;` mencegah request ganda saat scroll listener terpanggil berkali-kali, dan menghentikan request saat data habis. <br>
+
+### 9. UI infinite scroll (`lib/pages/paged_post_page.dart`)
+![alt text](<screenshots/Screenshot 2026-10-05 185607.png>) <br>
+![alt text](<screenshots/Screenshot 2026-10-05 185618.png>) <br>
+
+Ubah `home` di `main.dart` menjadi `PagedPostPage`, jalankan, dan scroll sampai bawah. Amati: halaman 1 tampil dulu, indikator muncul, data bertambah tanpa reload penuh. <br>
+
+Sebelum: <br>
+![alt text](<screenshots/Screenshot 2026-10-05 154846.png>) <br>
+
+Sesudah: <br>
+![alt text](<screenshots/Screenshot 2026-10-05 182344.png>) <br>
+ 
+![alt text](<screenshots/WhatsApp Image 2026-10-05 at 18.48.10.jpeg>) <br>
+![alt text](<screenshots/WhatsApp Image 2026-10-05 at 18.48.11.jpeg>) <br>
 
