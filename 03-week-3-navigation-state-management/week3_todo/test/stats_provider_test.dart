@@ -1,7 +1,7 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:week3_navigation/models/stat_item.dart';
-import 'package:week3_navigation/providers/stats_provider.dart';
+import 'package:week3_todo/models/stat_item.dart';
+import 'package:week3_todo/providers/stats_provider.dart';
 
 void main() {
   test('StatsNotifier mengembalikan hasil (baik sukses maupun gagal)',
