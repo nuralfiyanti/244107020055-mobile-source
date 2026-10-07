@@ -20,10 +20,6 @@ class TodoPage extends ConsumerWidget {
             icon: const Icon(Icons.shopping_cart),
             onPressed: () => context.push('/products'),
           ),
-          IconButton(
-            icon: const Icon(Icons.list_alt),
-            onPressed: () => context.push('/home'),
-          ),
         ],
       ),
       body: Column(
