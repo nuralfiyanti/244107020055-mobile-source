@@ -2,33 +2,34 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:week4_networking/data/models/comment.dart';
 
 void main() {
-  group('Comment.fromJson', () {
-    test('happy path: semua field lengkap', () {
-      final c = Comment.fromJson({
-        'postId': 1,
-        'id': 5,
-        'name': 'Nama',
-        'email': 'a@b.com',
-        'body': 'Isi',
-      });
-      expect(c.id, 5);
-      expect(c.email, 'a@b.com');
-    });
+  test('Comment.fromJson aman saat field hilang', () {
+    // name, email, dan body sengaja tidak ada.
+    final json = <String, dynamic>{'postId': 1, 'id': 5};
 
-    test('field hilang: pakai nilai default, tidak crash', () {
-      final c = Comment.fromJson({'id': 7, 'name': 'Hanya nama'});
-      expect(c.id, 7);
-      expect(c.postId, 0);
-      expect(c.email, '');
-      expect(c.body, '');
-    });
+    final comment = Comment.fromJson(json);
 
-    // Edge case tambahan (checklist: minimal 1 buatan sendiri)
-    test('field bernilai null dan JSON kosong tidak crash', () {
-      final nulls = Comment.fromJson({'id': null, 'name': null});
-      expect(nulls.id, 0);
-      expect(nulls.name, '');
-      expect(Comment.fromJson({}).body, '');
-    });
+    expect(comment.postId, 1);
+    expect(comment.id, 5);
+    expect(comment.name, '');
+    expect(comment.email, '');
+    expect(comment.body, '');
+  });
+
+    test('Comment.fromJson aman saat semua field null', () {
+    final json = <String, dynamic>{
+      'postId': null,
+      'id': null,
+      'name': null,
+      'email': null,
+      'body': null,
+    };
+
+    final comment = Comment.fromJson(json);
+
+    expect(comment.postId, 0);
+    expect(comment.id, 0);
+    expect(comment.name, '');
+    expect(comment.email, '');
+    expect(comment.body, '');
   });
 }
