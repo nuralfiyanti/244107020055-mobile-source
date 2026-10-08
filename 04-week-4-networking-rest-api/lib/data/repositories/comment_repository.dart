@@ -1,32 +1,33 @@
 import 'package:dio/dio.dart';
 import '../models/comment.dart';
 
-/// Satu-satunya pintu ke API untuk data komentar.
-/// Dio di-inject lewat constructor, sehingga baseUrl dan timeout
-/// tetap terpusat di createDio() (api_client.dart).
+/// Satu-satunya pintu data untuk komentar. UI tidak boleh memanggil Dio
+/// langsung; UI cukup membaca provider yang memakai repository ini.
 class CommentRepository {
   CommentRepository(this._dio);
+
   final Dio _dio;
 
+  /// Mengambil komentar milik satu post.
+  /// Endpoint: GET /comments?postId={postId}
+  ///
+  /// Timeout 10 detik tidak ditulis di sini: sudah diatur terpusat
+  /// di createDio() (api_client.dart), jadi berlaku untuk semua request.
+  ///
+  /// Exception (DioException) sengaja tidak ditangkap di sini supaya
+  /// naik ke provider dan otomatis menjadi AsyncError.
   Future<List<Comment>> fetchComments(int postId) async {
     final response = await _dio.get<List>(
       '/comments',
-      // Query parameter menghasilkan: /comments?postId=1
       queryParameters: {'postId': postId},
-      // Timeout 10 detik khusus request ini, sesuai requirement.
-      options: Options(
-        sendTimeout: const Duration(seconds: 10),
-        receiveTimeout: const Duration(seconds: 10),
-      ),
     );
-    // `?? []` melindungi kalau body null.
+
+    // Data bisa null, dan elemen list bisa bukan Map: disaring dulu
+    // sebelum diubah menjadi model.
     final data = response.data ?? [];
-    // whereType membuang elemen yang bukan Map, jadi tidak crash.
     return data
         .whereType<Map<String, dynamic>>()
         .map(Comment.fromJson)
         .toList();
-    // Exception sengaja TIDAK ditangkap di sini. Dibiarkan naik
-    // supaya provider mengubahnya menjadi AsyncError.
   }
 }

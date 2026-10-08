@@ -4,6 +4,21 @@
 **NIM:** 244107020055 - 17 <br>
 **Kelas:** TI-3E <br>
 
+----
+
+## Struktur Project
+- `lib/` : kode aplikasi (data, models, repositories, pages)
+- `test/` : unit dan widget test
+- `docs/` : dokumentasi AI Challenge
+- `screenshots/` : tangkapan layar hasil
+
+## Cara Menjalankan
+```bash
+flutter pub get
+flutter run
+```
+----
+
 ## LAPORAN PRAKTIKUM WEEK04
 
 <details>
@@ -12,7 +27,7 @@
 <blockquote>
 
 ## Ringkasan
-HTTP adalah protokol *request–response*: client mengirim request (method + URL + header + body), server membalas dengan status code + body. REST adalah gaya arsitektur yang m/emetakan operasi ke *resource* melalui URL dan method HTTP (`GET` membaca data, `POST` membuat resource baru, `PUT`/`PATCH` mengganti/memperbarui, `DELETE` menghapus). Status code penting yang perlu disiapkan UI-nya: `200 OK`, `201 Created`, `400 Bad Request`, `401 Unauthorized`, `404 Not Found`, `500 Internal Server Error` — mencakup kelompok sukses (2xx), client error (4xx), dan server/network error (5xx/timeout).
+HTTP adalah protokol *request–response*: client mengirim request (method + URL + header + body), server membalas dengan status code + body. REST adalah gaya arsitektur yang memetakan operasi ke *resource* melalui URL dan method HTTP (`GET` membaca data, `POST` membuat resource baru, `PUT`/`PATCH` mengganti/memperbarui, `DELETE` menghapus). Status code penting yang perlu disiapkan UI-nya: `200 OK`, `201 Created`, `400 Bad Request`, `401 Unauthorized`, `404 Not Found`, `500 Internal Server Error` — mencakup kelompok sukses (2xx), client error (4xx), dan server/network error (5xx/timeout).
 
 JSON (*JavaScript Object Notation*) adalah format tukar data standar API. Data mentah JSON (`Map<String, dynamic>`) perlu dipetakan ke *class model* di Dart agar aman terhadap `null` dan kesalahan ketik — pola manual `fromJson`/`toJson` cukup untuk codelab ini, sementara untuk project besar biasanya dipakai *code generator* (`json_serializable`/`freezed`).
 
@@ -40,7 +55,6 @@ Pada praktikum ini dibangun fondasi *networking* aplikasi: model data (`Post`) d
 
 Siapkan project (`flutter create`, `flutter pub add dio flutter_riverpod`), susun struktur folder (`lib/data/models/`, `lib/data/repositories/`, `lib/pages/`): <br>
 ![alt text](<screenshots/Screenshot 2026-09-29 103020.png>) <br>
-![alt text](<screenshots/Screenshot 2026-09-30 174531.png>) <br>
 ![alt text](<screenshots/Screenshot 2026-09-30 174554.png>) <br>
 
 Struktur folder: <br>
@@ -60,6 +74,9 @@ Dio dipilih dibanding package `http` karena memberi timeout per-request, interce
 ![alt text](<screenshots/Screenshot 2026-10-05 151843.png>) <br>
 
 Repository tidak menampilkan UI apa pun dan tidak menangkap exception menjadi nilai diam-diam — exception dibiarkan naik agar provider mengubahnya menjadi `AsyncError` secara otomatis di langkah berikutnya.
+
+### Berikut hasil Dio dan model data : <br>
+![alt text](<screenshots/WhatsApp Image 2026-10-08 at 12.59.12.jpeg>) 
 
 </blockquote>
 </details>
@@ -97,7 +114,9 @@ Sebelum: <br>
 
 Sesudah: <br>
 ![alt text](<screenshots/Screenshot 2026-10-05 164123.png>) <br>
-![alt text](<screenshots/WhatsApp Image 2026-10-05 at 16.43.26.jpeg>) <br>
+
+Hasil: <br>
+![alt text](<screenshots/WhatsApp Image 2026-10-08 at 06.20.33.jpeg>) <br>
 
 </blockquote>
 </details>
@@ -143,10 +162,60 @@ Sesudah: <br>
 </details>
 
 <br>
-
 <details>
 <summary><h3>6. AI Challenge</h3></summary>
 <br>
 <blockquote>
 
+## Ringkasan
 
+Pada AI Challenge Week 4, AI (Claude) digunakan sebagai alat bantu untuk merancang *repository layer* Flutter pada endpoint `GET /comments?postId={id}` dari JSONPlaceholder, memakai **Dio** + **flutter_riverpod**.
+
+Kode hasil AI **tidak langsung dipakai**. Seluruh output diverifikasi lewat `flutter analyze`, `flutter test`, dan pencarian manual. Dokumentasi lengkap — termasuk prompt, output awal AI, temuan, dan perbaikan — tersedia di:
+
+- [`docs/ai-challenge.md`](docs/ai-challenge.md)
+
+---
+
+## Temuan dan Perbaikan
+
+- **Import package salah** — output AI memakai `week4_api`, padahal nama package project adalah `week4_networking`. Diperbaiki.
+- **API Riverpod tidak sesuai versi** — `FamilyAsyncNotifier` / `AsyncNotifierProviderFamily` tidak dikenali di Riverpod 3. Diganti ke `AsyncNotifierProvider.family`.
+- **Duplikasi timeout** — AI menulis `Options(receiveTimeout)` di repository, padahal sudah diatur di `createDio()`. Dihapus.
+- **Widget test bawaan tidak relevan** — `widget_test.dart` template Flutter dihapus.
+- **Edge case ditambahkan** — test `Comment.fromJson` dengan semua field `null`.
+
+---
+
+## Verifikasi Checklist
+
+| # | Checklist | Status | Bukti |
+|---|---|---|---|
+| 1 | UI tidak memanggil Dio langsung | ✅ | Pencarian `Dio` di `lib/pages` → **0 results** |
+| 2 | `fromJson` aman null | ✅ | `comment.dart` pakai `as String? ?? ''` dan `(as num?)?.toInt() ?? 0` |
+| 3 | `DioExceptionType` dipetakan ke pesan pengguna | ✅ | `commentErrorMessage` menangani timeout, connectionError, badResponse (404, 5xx) |
+| 4 | `baseUrl`/timeout terpusat | ✅ | Tidak ada `Options` di repository; semua di `createDio()` (`api_client.dart`) |
+| 5 | Test menguji field hilang & edge case | ✅ | 2 test: field hilang + semua field null |
+| 6 | `flutter analyze` & `flutter test` lolos | ✅ | `No issues found!` + `+2: All tests passed!` |
+
+---
+
+## Bukti Verifikasi
+
+<p align="center">
+  <img src="screenshots/test_final.png" width="500"><br>
+  <em>Hasil <code>flutter test</code> — <code>+2: All tests passed!</code></em>
+</p>
+
+Screenshot lengkap (`flutter analyze`, `flutter test`, dan pencarian `Dio` di `lib/pages`) tersedia di [`docs/ai-challenge.md`](docs/ai-challenge.md).
+
+---
+
+## Refleksi
+
+Kode hasil AI tidak selalu langsung sesuai dengan versi library atau struktur project. Verifikasi lewat `flutter analyze` dan `flutter test` sangat penting untuk menangkap ketidaksesuaian versi, nama package yang salah di import, duplikasi konfigurasi, dan test bawaan template yang sudah tidak relevan. AI berperan sebagai alat bantu pengembangan; keputusan akhir tetap diverifikasi dan disesuaikan dengan kebutuhan project.
+
+Pembahasan lebih dalam tersedia di [`docs/ai-challenge.md`](docs/ai-challenge.md).
+
+</blockquote>
+</details>
