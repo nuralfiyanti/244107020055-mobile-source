@@ -1,0 +1,245 @@
+# Jobsheet 5: Local Storage & Offline-First
+
+**Nama:** Nur Alfiyanti <br>
+**NIM:** 244107020055 - 17 <br>
+**Kelas:** TI-3E <br>
+
+---
+
+## Struktur Project
+
+- `week5_offline_notes/` : project Flutter utama
+- `week5_offline_notes/lib/` : kode aplikasi
+- `week5_offline_notes/test/` : unit dan widget test
+- `week5_offline_notes/screenshots/` : tangkapan layar hasil
+
+## Cara Menjalankan
+
+```bash
+cd week5_offline_notes
+flutter pub get
+flutter run
+```
+
+---
+
+## LAPORAN PRAKTIKUM WEEK05
+
+<details>
+<summary><h3>2. Konsep Local Storage dan Offline-First</h3></summary>
+<br>
+<blockquote>
+
+## Ringkasan
+
+**Local storage** adalah mekanisme menyimpan data **di perangkat** (bukan di server). Untuk aplikasi mobile, ada beberapa pilihan:
+
+| Kebutuhan | Pilihan | Contoh |
+|---|---|---|
+| Pengaturan kecil key-value | `SharedPreferences` | tema gelap/terang, bahasa, waktu terakhir dibuka |
+| Data terstruktur relasional | SQLite via `sqflite` | catatan, tugas, transaksi |
+| NoSQL ringan embedded | Hive | cache objek, kotak (box) sederhana |
+| Relasional reaktif & type-safe | Drift | aplikasi besar dengan query kompleks + stream |
+
+Codelab ini memakai **`SharedPreferences` + SQLite (`sqflite`)** - kombinasi paling umum di industri untuk aplikasi offline notes.
+
+### Offline-first, bukan offline-only
+
+Offline-first berarti aplikasi **selalu bisa dibaca dan ditulis** meski tanpa internet, lalu **disinkronkan** saat koneksi kembali. Tiga mekanisme intinya:
+
+1. **Cache-first read** - tampilkan data lokal seketika, lalu refresh dari jaringan di background dan simpan hasilnya.
+2. **Dirty flag** - setiap perubahan lokal yang belum terkirim ditandai (`dirty = 1`) agar bisa di-sync belakangan.
+3. **Antrean sinkronisasi** - operasi tertunda diproses berurutan saat online; konflik diselesaikan dengan aturan eksplisit (misalnya last-write-wins berdasarkan `updated_at`).
+
+### Repository untuk data lokal
+
+Aturan arsitektur yang sama seperti Minggu 4 tetap berlaku, hanya sumber datanya berubah:
+
+- UI **tidak boleh** memanggil SQLite/SharedPreferences secara langsung.
+- **Repository** adalah satu-satunya pintu ke database dan preferensi.
+- **Provider Riverpod** mengekspos `AsyncValue` (loading/error/data) dan fungsi `invalidate` untuk refresh.
+
+<br>
+
+</blockquote>
+</details>
+
+<br>
+
+<details>
+<summary><h3>3. Praktikum 1: SharedPreferences</h3></summary>
+<br>
+<blockquote>
+
+## Ringkasan
+
+Praktikum ini membangun **repository preferences** menggunakan `SharedPreferences` untuk menyimpan pengaturan sederhana (dark mode, terakhir dibuka). Setiap key terpusat di `PrefsRepository`, tidak tersebar di widget.
+
+---
+
+## Langkah Praktikum beserta Bukti Screenshot
+
+### 1. Setup Project
+
+```powershell
+flutter create 05-week-5-local-storage-offline-first --project-name week5_offline_notes
+cd week5_offline_notes
+flutter pub add flutter_riverpod shared_preferences sqflite path
+```
+
+**Hasil:** 32 dependency ter-install, termasuk `flutter_riverpod 3.4.3`, `shared_preferences 2.5.6`, `sqflite 2.4.4+1`, `path 1.9.1`.
+
+Struktur folder: <br>
+
+lib/
+├── main.dart
+├── data/
+│   ├── local/
+│   │   ├── db.dart
+│   │   └── note.dart
+│   ├── prefs.dart
+│   └── repositories/
+│       └── note_repository.dart
+└── pages/
+    ├── settings_page.dart
+    └── notes_page.dart
+
+### 2. Repository Preferences (`lib/data/prefs.dart`)
+
+Menyimpan key SharedPreferences terpusat di satu repository:
+
+```dart
+import 'package:shared_preferences/shared_preferences.dart';
+
+class PrefsRepository {
+  static const _darkModeKey = 'dark_mode';
+  static const _lastOpenedKey = 'last_opened_at';
+
+  Future<bool> getDarkMode() async {
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.getBool(_darkModeKey) ?? false;
+  }
+
+  Future<void> setDarkMode(bool value) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool(_darkModeKey, value);
+  }
+
+  Future<void> markOpenedNow() async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString(_lastOpenedKey, DateTime.now().toIso8601String());
+  }
+
+  Future<String?> getLastOpened() async {
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.getString(_lastOpenedKey);
+  }
+}
+```
+
+### 3. Provider dan Halaman Pengaturan
+
+`lib/data/providers.dart`
+
+```dart
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'prefs.dart';
+
+final prefsRepositoryProvider = Provider((ref) => PrefsRepository());
+
+final darkModeProvider =
+    AsyncNotifierProvider<DarkModeNotifier, bool>(DarkModeNotifier.new);
+
+class DarkModeNotifier extends AsyncNotifier<bool> {
+  @override
+  Future<bool> build() {
+    return ref.watch(prefsRepositoryProvider).getDarkMode();
+  }
+
+  Future<void> toggle() async {
+    final next = !(state.value ?? false);
+    state = const AsyncLoading();
+    state = await AsyncValue.guard(() async {
+      await ref.read(prefsRepositoryProvider).setDarkMode(next);
+      return next;
+    });
+  }
+}
+```
+`lib/pages/settings_page.dart` 
+
+```dart
+import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../data/providers.dart';
+
+class SettingsPage extends ConsumerWidget {
+  const SettingsPage({super.key});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final darkMode = ref.watch(darkModeProvider);
+
+    return Scaffold(
+      appBar: AppBar(title: const Text('Pengaturan')),
+      body: darkMode.when(
+        loading: () => const Center(child: CircularProgressIndicator()),
+        error: (err, _) => Center(child: Text('Error: $err')),
+        data: (isDark) => SwitchListTile(
+          title: const Text('Dark Mode'),
+          value: isDark,
+          onChanged: (_) => ref.read(darkModeProvider.notifier).toggle(),
+        ),
+      ),
+    );
+  }
+}
+```
+
+Update `lib/main.dart`
+
+```dart
+import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'pages/settings_page.dart';
+
+void main() => runApp(const ProviderScope(child: MyApp()));
+
+class MyApp extends StatelessWidget {
+  const MyApp({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return MaterialApp(
+      title: 'Week 5 - Offline Notes',
+      theme: ThemeData(colorSchemeSeed: Colors.indigo, useMaterial3: true),
+      home: const SettingsPage(),
+    );
+  }
+}
+```
+
+### 4. Hasil
+
+![alt text](<screenshots/WhatsApp Image 2026-10-10 at 03.30.55.jpeg>) <br>
+
+### 5. Verifikasi
+
+`flutter analyze` 
+![alt text](<screenshots/Screenshot 2026-10-10 025850.png>) <br>
+
+`flutter test`  
+![alt text](<screenshots/Screenshot 2026-10-10 025835.png>) <br>
+
+</blockquote>
+</details>
+
+
+<br>
+
+<details>
+<summary><h3>4. Praktikum 2: SQLite dan repository catatan</h3></summary>
+<br>
+<blockquote>
+
+
