@@ -1,4 +1,3 @@
-import 'package:dio/dio.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'models/comment.dart';
 import 'providers.dart'; // dioProvider
@@ -32,27 +31,3 @@ final commentListProvider = AsyncNotifierProvider.family<
   // Matikan retry otomatis Riverpod 3 agar error langsung final.
   retry: (retryCount, error) => null,
 );
-
-/// Mengubah exception teknis menjadi pesan yang aman ditampilkan.
-String commentErrorMessage(Object error) {
-  if (error is DioException) {
-    switch (error.type) {
-      case DioExceptionType.connectionTimeout:
-      case DioExceptionType.sendTimeout:
-      case DioExceptionType.receiveTimeout:
-        return 'Koneksi lambat atau timeout. Coba lagi beberapa saat.';
-      case DioExceptionType.connectionError:
-        return 'Tidak dapat terhubung ke server. Periksa internet Anda.';
-      case DioExceptionType.badResponse:
-        final code = error.response?.statusCode;
-        if (code == 404) return 'Komentar tidak ditemukan (404).';
-        if (code != null && code >= 500) {
-          return 'Server bermasalah ($code). Coba lagi nanti.';
-        }
-        return 'Permintaan gagal ($code).';
-      default:
-        return 'Terjadi kesalahan jaringan. Coba lagi.';
-    }
-  }
-  return 'Terjadi kesalahan tak terduga.';
-}

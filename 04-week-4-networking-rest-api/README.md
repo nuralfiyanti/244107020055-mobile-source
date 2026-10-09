@@ -219,3 +219,497 @@ Pembahasan lebih dalam tersedia di [`docs/ai-challenge.md`](docs/ai-challenge.md
 
 </blockquote>
 </details>
+
+<details>
+<summary><h3>7. Refactoring dan testing</h3></summary>
+<br>
+<blockquote>
+
+## Ringkasan
+
+Bagian ini mencakup **refactoring** kode Week 4 agar lebih rapi, dan **unit test** untuk model + provider dengan *mock repository* (tanpa akses internet sungguhan).
+
+Tiga refactor yang dikerjakan:
+
+1. Ekstrak `PostTile` sebagai widget bersama.
+2. Pindah `friendlyErrorMessage` ke `lib/data/network_errors.dart`.
+3. Tambah halaman detail post dengan **GoRouter** (`/post/:id`).
+
+Ditambah unit test `post_test.dart` dengan 4 test (model + error mapping + provider + mock repository).
+
+---
+
+## 1. Ekstrak Widget `PostTile`
+
+**File baru:** `lib/pages/widgets/post_tile.dart`
+
+Widget `PostTile` menggantikan `ListTile` inline di `post_list_page.dart` dan `paged_post_page.dart`. Mendukung parameter `showBody` untuk membedakan tampilan non-paged (title + body) vs paged (title saja).
+
+**Isi lengkap `PostTile`:**
+
+```dart
+import 'package:flutter/material.dart';
+import '../../data/models/post.dart';
+
+class PostTile extends StatelessWidget {
+  const PostTile({
+    super.key,
+    required this.post,
+    this.onTap,
+    this.showBody = true,
+  });
+
+  final Post post;
+  final VoidCallback? onTap;
+
+  final bool showBody;
+
+  @override
+  Widget build(BuildContext context) {
+    return ListTile(
+      leading: CircleAvatar(child: Text(post.id.toString())),
+      title: Text(
+        post.title,
+        maxLines: 1,
+        overflow: TextOverflow.ellipsis,
+      ),
+      subtitle: showBody
+          ? Text(
+              post.body,
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
+            )
+          : null,
+      onTap: onTap,
+    );
+  }
+}
+```
+
+**Cara pakai di `post_list_page.dart`:**
+
+```dart
+return PostTile(
+  post: post,
+  onTap: () => context.go('/post/${post.id}'),
+);
+```
+
+**Cara pakai di `paged_post_page.dart`:**
+
+```dart
+return PostTile(
+  post: post,
+  showBody: false,
+  onTap: () => context.go('/post/${post.id}'),
+);
+```
+
+**Manfaat:**
+- `ListView.builder` di kedua halaman jadi lebih pendek.
+- Tampilan konsisten di paged & non-paged.
+- Mudah diuji (satu widget, satu tanggung jawab).
+
+**Hasil visual:**
+
+<p align="center">
+  <img src="![alt text](<screenshots/WhatsApp Image 2026-10-09 at 11.34.37.jpeg>)" width="250"><br>
+  <em>Non-paged: title + body 2 baris</em>
+</p>
+
+<p align="center">
+  <img src="![alt text](<screenshots/WhatsApp Image 2026-10-09 at 11.34.37 (1).jpeg>)" width="250"><br>
+  <em>Post 90–100, konten lengkap</em>
+</p>
+
+---
+
+## 2. Pindah `friendlyErrorMessage` ke `network_errors.dart`
+
+**File baru:** `lib/data/network_errors.dart`
+
+Fungsi `friendlyErrorMessage` dipindah dari `lib/data/providers.dart` ke file terpisah agar bisa dipakai ulang oleh:
+
+- Provider post (`providers.dart`)
+- Provider comment (`comment_providers.dart`)
+- Halaman non-paged (`post_list_page.dart`)
+- Halaman paged (`paged_post_page.dart`)
+
+Fungsi `commentErrorMessage` yang tadinya duplikat di `comment_providers.dart` **dihapus**. Sekarang semua pakai `friendlyErrorMessage` dari `network_errors.dart`.
+
+**Isi lengkap `network_errors.dart`:**
+
+```dart
+import 'package:dio/dio.dart';
+
+/// Memetakan DioException ke pesan ramah pengguna.
+/// Dipakai oleh provider post maupun comment.
+String friendlyErrorMessage(Object error) {
+  if (error is DioException) {
+    switch (error.type) {
+      case DioExceptionType.connectionTimeout:
+      case DioExceptionType.sendTimeout:
+      case DioExceptionType.receiveTimeout:
+        return 'Koneksi lambat atau timeout. Periksa internet Anda lalu coba lagi.';
+      case DioExceptionType.connectionError:
+        return 'Tidak dapat terhubung ke server. Periksa internet Anda.';
+      case DioExceptionType.badResponse:
+        final code = error.response?.statusCode;
+        if (code == 404) return 'Data tidak ditemukan (404).';
+        if (code == 401 || code == 403) {
+          return 'Akses ditolak ($code). Periksa kredensial Anda.';
+        }
+        if (code != null && code >= 500) {
+          return 'Server bermasalah ($code). Coba lagi nanti.';
+        }
+        return 'Permintaan gagal ($code).';
+      default:
+        return 'Terjadi kesalahan jaringan. Coba lagi.';
+    }
+  }
+  return 'Terjadi kesalahan tak terduga: $error';
+}
+```
+
+**File terdampak:**
+
+| File | Perubahan |
+|---|---|
+| `lib/data/network_errors.dart` | **Baru** — berisi `friendlyErrorMessage` |
+| `lib/data/providers.dart` | Hapus `friendlyErrorMessage`, import `network_errors.dart` |
+| `lib/data/comment_providers.dart` | Hapus `commentErrorMessage` |
+| `lib/pages/post_list_page.dart` | Import `network_errors.dart` |
+| `lib/pages/paged_post_page.dart` | Import `network_errors.dart` |
+
+**Hasil:** `flutter analyze` = `No issues found!`
+
+---
+
+## 3. Halaman Detail Post dengan GoRouter
+
+**File baru:**
+- `lib/router.dart` — konfigurasi GoRouter
+- `lib/pages/post_detail_page.dart` — halaman detail
+
+**Isi lengkap `lib/router.dart`:**
+
+```dart
+import 'package:go_router/go_router.dart';
+import 'pages/post_list_page.dart';
+import 'pages/paged_post_page.dart';
+import 'pages/post_detail_page.dart';
+
+final appRouter = GoRouter(
+  initialLocation: '/',
+  routes: [
+    GoRoute(
+      path: '/',
+      builder: (context, state) => const PostListPage(),
+    ),
+    GoRoute(
+      path: '/paged',
+      builder: (context, state) => const PagedPostPage(),
+    ),
+    GoRoute(
+      path: '/post/:id',
+      builder: (context, state) {
+        final id = int.tryParse(state.pathParameters['id'] ?? '') ?? 0;
+        return PostDetailPage(postId: id);
+      },
+    ),
+  ],
+);
+```
+
+**Isi lengkap `lib/pages/post_detail_page.dart`:**
+
+```dart
+import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../data/models/post.dart';
+import '../data/network_errors.dart';
+import '../data/providers.dart';
+
+/// Halaman detail post. State diambil dari `postListProvider` yang
+/// sudah dimuat. Kalau post tidak ditemukan di list (misal deep link),
+/// tampilkan pesan agar user kembali ke daftar.
+class PostDetailPage extends ConsumerWidget {
+  const PostDetailPage({super.key, required this.postId});
+
+  final int postId;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final postsAsync = ref.watch(postListProvider);
+
+    return Scaffold(
+      appBar: AppBar(title: const Text('Detail Post')),
+      body: postsAsync.when(
+        loading: () => const Center(child: CircularProgressIndicator()),
+        error: (err, _) => Center(
+          child: Padding(
+            padding: const EdgeInsets.all(24),
+            child: Text(
+              friendlyErrorMessage(err),
+              textAlign: TextAlign.center,
+            ),
+          ),
+        ),
+        data: (posts) {
+          final Post? post = posts.cast<Post?>().firstWhere(
+                (p) => p?.id == postId,
+                orElse: () => null,
+              );
+
+          if (post == null) {
+            return Center(
+              child: Padding(
+                padding: const EdgeInsets.all(24),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const Text(
+                      'Post tidak ditemukan.\nKembali ke daftar untuk memuat ulang.',
+                      textAlign: TextAlign.center,
+                    ),
+                    const SizedBox(height: 12),
+                    FilledButton(
+                      onPressed: () => ref.invalidate(postListProvider),
+                      child: const Text('Muat ulang daftar'),
+                    ),
+                  ],
+                ),
+              ),
+            );
+          }
+
+          return SingleChildScrollView(
+            padding: const EdgeInsets.all(16),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  post.title,
+                  style: Theme.of(context).textTheme.headlineSmall,
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  'Post ID: ${post.id} · User ID: ${post.userId}',
+                  style: Theme.of(context).textTheme.bodySmall,
+                ),
+                const SizedBox(height: 16),
+                Text(post.body),
+              ],
+            ),
+          );
+        },
+      ),
+    );
+  }
+}
+```
+
+**Route:**
+
+| Path | Halaman |
+|---|---|
+| `/` | `PostListPage` (non-paged) |
+| `/paged` | `PagedPostPage` (infinite scroll) |
+| `/post/:id` | `PostDetailPage` (detail post) |
+
+**`main.dart`** diubah dari `MaterialApp` menjadi `MaterialApp.router`:
+
+```dart
+import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'router.dart';
+
+void main() => runApp(const ProviderScope(child: MyApp()));
+
+class MyApp extends StatelessWidget {
+  const MyApp({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return MaterialApp.router(
+      title: 'Week 4 - REST API',
+      theme: ThemeData(
+        colorSchemeSeed: Colors.indigo,
+        useMaterial3: true,
+      ),
+      routerConfig: appRouter,
+    );
+  }
+}
+```
+
+**State detail:** diambil dari `postListProvider` yang sudah dimuat (sesuai jobsheet: *"state detail diambil dari list yang sudah dimuat"*). Jika post tidak ditemukan, tampil pesan + tombol "Muat ulang daftar".
+
+**Hasil visual:**
+
+<p align="center">
+  <img src="![alt text](<screenshots/WhatsApp Image 2026-10-09 at 11.37.34.jpeg>)" width="250"><br>
+  <em>Halaman detail: title, metadata Post ID + User ID, body lengkap</em>
+</p>
+
+**Navigasi antar halaman:**
+- Di `PostListPage` → tombol **`Icons.pages`** menuju `/paged`.
+- Di `PagedPostPage` → tombol **`Icons.list`** menuju `/`.
+- Klik post di halaman manapun → buka `/post/:id`.
+
+**Pagination tetap bekerja:**
+
+<p align="center">
+  <img src="![alt text](<screenshots/WhatsApp Image 2026-10-09 at 11.34.38.jpeg>)" width="250"><br>
+  <em>Post 100 + pesan "Semua data termuat" — pagination berjalan</em>
+</p>
+
+---
+
+## 4. Testing: `test/post_test.dart`
+
+**File baru:** `test/post_test.dart` — 4 test dengan **mock repository** (tanpa akses internet).
+
+**Isi lengkap `post_test.dart`:**
+
+```dart
+import 'package:flutter_test/flutter_test.dart';
+import 'package:dio/dio.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:week4_networking/data/models/post.dart';
+import 'package:week4_networking/data/network_errors.dart';
+import 'package:week4_networking/data/providers.dart';
+import 'package:week4_networking/data/repositories/post_repository.dart';
+
+class FakePostRepository extends PostRepository {
+  FakePostRepository({this.items, this.throwError = false}) : super(Dio());
+  final List<Post>? items;
+  final bool throwError;
+
+  @override
+  Future<List<Post>> fetchPosts() async {
+    if (throwError) {
+      throw DioException(
+        requestOptions: RequestOptions(path: '/posts'),
+        type: DioExceptionType.connectionError,
+      );
+    }
+    return items ?? const [];
+  }
+
+  @override
+  Future<List<Post>> fetchPostsPage({required int page, int limit = 10}) async {
+    return fetchPosts();
+  }
+}
+
+void main() {
+  test('fromJson aman terhadap field yang hilang', () {
+    final post = Post.fromJson({'id': 7});
+    expect(post.id, 7);
+    expect(post.title, '');
+    expect(post.userId, 0);
+  });
+
+  test('friendlyErrorMessage untuk connection error', () {
+    final err = DioException(
+      requestOptions: RequestOptions(path: '/posts'),
+      type: DioExceptionType.connectionError,
+    );
+    expect(friendlyErrorMessage(err), contains('terhubung'));
+  });
+
+  test('provider sukses dengan repository palsu', () async {
+    final container = ProviderContainer(
+      overrides: [
+        postRepositoryProvider.overrideWithValue(
+          FakePostRepository(items: [
+            const Post(userId: 1, id: 1, title: 'Tes', body: 'Isi'),
+          ]),
+        ),
+      ],
+    );
+    addTearDown(container.dispose);
+    final posts = await readPostsOnce(container);
+    expect(posts.length, 1);
+    expect(posts.first.title, 'Tes');
+  });
+
+  test('provider error dengan repository palsu', () async {
+    final container = ProviderContainer(
+      overrides: [
+        postRepositoryProvider.overrideWithValue(
+          FakePostRepository(throwError: true),
+        ),
+      ],
+    );
+    addTearDown(container.dispose);
+    final err = await readPostsErrorOnce(container);
+    expect(err, isA<DioException>());
+    expect(friendlyErrorMessage(err!), contains('terhubung'));
+  });
+}
+```
+
+**Daftar 4 test:**
+
+| # | Test | Yang diuji |
+|---|---|---|
+| 1 | `fromJson aman terhadap field yang hilang` | `Post.fromJson({'id': 7})` → `id=7`, `title=''`, `userId=0` |
+| 2 | `friendlyErrorMessage untuk connection error` | `DioException` connectionError → pesan mengandung "terhubung" |
+| 3 | `provider sukses dengan repository palsu` | `FakePostRepository` mengembalikan 1 post → provider membaca 1 post |
+| 4 | `provider error dengan repository palsu` | `FakePostRepository` melempar `DioException` → provider menangkap error |
+
+**Catatan:** pola `FakePostRepository` ini adalah fondasi *mock API* yang akan dipakai lagi di Minggu 12 (Testing & QA). Tidak ada request HTTP sungguhan di dalam test.
+
+---
+
+## Hasil Verifikasi
+
+```text
+flutter analyze
+No issues found! (ran in 16.5s)
+
+flutter test
++6: All tests passed!
+```
+
+**6 test** = 2 dari `comment_test.dart` + 4 dari `post_test.dart`.
+
+<p align="center">
+  <img src="screenshots/analyze_final.png" width="400"><br>
+  <em>flutter analyze — No issues found!</em>
+</p>
+
+<p align="center">
+  <img src="screenshots/test_final.png" width="400"><br>
+  <em>flutter test — +6: All tests passed!</em>
+</p>
+
+---
+
+## Checklist Verifikasi Mandiri
+
+| # | Checklist | Status | Bukti |
+|---|---|---|---|
+| 1 | UI tidak memanggil Dio langsung | ✅ | Pencarian `Dio` di `lib/pages` → 0 results |
+| 2 | Empat state tampil: loading, error (+ retry), empty, success | ✅ | `post_list_page.dart`, `paged_post_page.dart` |
+| 3 | Pagination: data bertambah, tidak ada request ganda, ada indikator akhir | ✅ | Screenshot `paged_infinite_scroll.png` |
+| 4 | `flutter analyze` tanpa issue & semua test lulus | ✅ | No issues + `+6` lolos |
+| 5 | Hasil AI diverifikasi & didokumentasikan di `docs/` | ✅ | `docs/ai-challenge.md` |
+
+---
+
+## Refleksi
+
+Refactor ini mengajarkan tiga hal:
+
+1. **Widget kecil lebih mudah diuji.** `PostTile` sebagai widget terpisah lebih mudah di-*test* daripada `ListTile` inline.
+2. **Satu fungsi untuk satu tujuan.** `friendlyErrorMessage` yang dipakai di banyak tempat lebih baik berada di file terpisah daripada duplikat.
+3. **Routing terpusat.** GoRouter membuat navigasi lebih deklaratif dan mudah diperluas.
+
+AI berperan sebagai alat bantu dalam merancang struktur, tetapi keputusan refactor tetap diverifikasi lewat `flutter analyze`, `flutter test`, dan uji visual di HP.
+
+</blockquote>
+</details>
+
