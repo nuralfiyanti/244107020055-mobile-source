@@ -715,9 +715,221 @@ AI berperan sebagai alat bantu dalam merancang struktur, tetapi keputusan refact
 
 <details>
 <summary><h3>8. Tugas, Refleksi, dan Referensi</h3></summary>
+<br>
+<blockquote>
 
+## 1. Mini Project / Industry Challenge
 
+### 1.1 Deskripsi
 
+Aplikasi **Week 4 — REST API** menampilkan daftar post dari API dummy [JSONPlaceholder](https://jsonplaceholder.typicode.com/). Dikembangkan dari project codelab dengan tambahan refactor, pagination, dan test.
+
+### 1.2 Fitur Utama
+
+| Fitur | Deskripsi |
+|---|---|
+| **Daftar post** | `GET /posts` — 100 post dari JSONPlaceholder |
+| **Detail post** | Klik post → halaman detail (`/post/:id`) dengan title + body lengkap |
+| **Pagination** | Infinite scroll, 10 post per halaman (`?_page=N&_limit=10`) |
+| **Navigasi** | GoRouter — pindah antara `PostListPage`, `PagedPostPage`, `PostDetailPage` |
+| **Error handling** | 4 state: loading, error + tombol retry, empty, success |
+| **Pesan error ramah** | `friendlyErrorMessage` memetakan `DioException` ke Bahasa Indonesia |
+| **Auto retry guard** | `if (state.isLoadingMore || !state.hasMore) return;` mencegah request ganda |
+
+### 1.3 Stack Teknologi
+
+| Komponen | Package / Tool |
+|---|---|
+| Bahasa | Dart 3.13+ |
+| Framework | Flutter |
+| HTTP client | [`dio`](https://pub.dev/packages/dio) ^5.11.1 |
+| State management | [`flutter_riverpod`](https://pub.dev/packages/flutter_riverpod) ^3.4.3 |
+| Routing | [`go_router`](https://pub.dev/packages/go_router) ^18.0.2 |
+| Testing | `flutter_test` + mock repository |
+
+### 1.4 Struktur Project
+
+```text
+04-week-4-networking-rest-api/
+├── lib/
+│   ├── main.dart
+│   ├── router.dart
+│   ├── data/
+│   │   ├── api_client.dart
+│   │   ├── network_errors.dart
+│   │   ├── providers.dart
+│   │   ├── comment_providers.dart
+│   │   ├── paged_posts.dart
+│   │   ├── models/
+│   │   │   ├── post.dart
+│   │   │   └── comment.dart
+│   │   └── repositories/
+│   │       ├── post_repository.dart
+│   │       └── comment_repository.dart
+│   └── pages/
+│       ├── post_list_page.dart
+│       ├── paged_post_page.dart
+│       ├── post_detail_page.dart
+│       └── widgets/
+│           └── post_tile.dart
+├── test/
+│   ├── comment_test.dart
+│   └── post_test.dart
+├── docs/
+│   └── ai-challenge.md
+├── screenshots/
+└── README.md
+```
+
+### 1.5 Cara Menjalankan
+
+```bash
+git clone <url-repo-portfolio>
+cd 04-week-4-networking-rest-api
+flutter pub get
+flutter run
+flutter analyze
+flutter test
+```
+
+### 1.6 Hasil yang Dicapai
+
+```text
+flutter analyze → No issues found!
+flutter test    → +6: All tests passed!
+```
+
+**6 test lulus:**
+- `comment_test.dart` — 2 test (field hilang + semua field null)
+- `post_test.dart` — 4 test (fromJson, error mapping, provider sukses, provider error)
+
+---
+
+## 2. Refleksi
+
+### 2.1 Mengapa UI Dilarang Memanggil Dio Langsung? Apa yang Rusak Jika Aturan Ini Dilanggar?
+
+**Alasan larangan:**
+
+1. **Coupling tinggi.** Kalau UI panggil Dio langsung, UI jadi tahu detail transportasi jaringan (URL, timeout, header). Kalau nanti ganti `Dio` ke `http` atau `graphql`, semua UI harus diubah.
+2. **Sulit diuji.** UI yang punya kode jaringan langsung butuh koneksi internet saat test. Unit test jadi lambat, tidak stabil, dan tidak deterministik.
+3. **Duplikasi logika.** Setiap halaman yang panggil Dio perlu ulang error handling, parsing JSON, dan loading state.
+4. **Sulit debug.** Kalau ada bug jaringan, harus cari di mana-mana — bukan di satu tempat.
+
+**Yang rusak kalau dilanggar:**
+
+- Test jadi rapuh (butuh mock HTTP, bukan mock repository).
+- Refactor besar (ganti API = ubah seluruh UI).
+- UI jadi gemuk (tanggung jawab bercampur).
+- Error handling tidak konsisten.
+
+**Solusi yang dipakai:**
+
+```text
+UI (ConsumerWidget)
+   ↓ ref.watch
+Provider (AsyncValue)
+   ↓
+Repository (satu-satunya pintu data)
+   ↓
+Dio (transportasi)
+   ↓
+JSONPlaceholder API
+```
+
+### 2.2 Kapan Pagination Client-Side Cukup, Kapan Harus Server-Side (`_page`/`_limit`)?
+
+**Pagination client-side** (ambil semua data di awal, potong di UI): cukup ketika data < 100–200 item, ringan, jarang berubah. Kelebihan: tidak ada request tambahan. Kekurangan: load awal berat, boros memori.
+
+**Pagination server-side** (`_page`/`_limit`): wajib ketika data besar (> 500 item), berat (gambar/video), sering update, atau butuh hemat bandwidth. Kelebihan: load awal cepat, hemat memori. Kekurangan: perlu request tiap halaman + guard request ganda.
+
+**Di project ini:** JSONPlaceholder punya 100 post — sebenarnya client-side cukup. Tapi server-side dipakai karena jobsheet minta, sekaligus latihan pola untuk API nyata.
+
+| Situasi | Rekomendasi |
+|---|---|
+| Daftar provinsi Indonesia (34 item) | Client-side |
+| Daftar 100 post JSONPlaceholder | Client-side (atau server-side untuk latihan) |
+| Feed Twitter/Instagram | Server-side (wajib) |
+| Katalog e-commerce (1000+ produk) | Server-side (wajib) |
+
+### 2.3 Bagaimana Exception Repository Berubah Jadi `AsyncError` Tanpa `try/catch` di Setiap Widget? Kapan `try/catch` Eksplisit Tetap Dibutuhkan?
+
+`AsyncNotifier` di Riverpod **otomatis menangkap exception** dari method `build()`:
+
+```dart
+class PostListNotifier extends AsyncNotifier<List<Post>> {
+  @override
+  Future<List<Post>> build() async {
+    final repository = ref.watch(postRepositoryProvider);
+    return repository.fetchPosts();  // ← kalau throw, otomatis jadi AsyncError
+  }
+}
+```
+
+Repository **sengaja tidak** menangkap exception → exception naik ke provider → provider ubah jadi `AsyncError` → UI tampilkan pesan.
+
+**Kapan `try/catch` eksplisit masih diperlukan:**
+
+1. **Method di luar `build()`** — misal `refresh()`, `loadNextPage()`:
+
+```dart
+Future<void> refresh() async {
+  state = const AsyncLoading();
+  try {
+    final repository = ref.read(postRepositoryProvider);
+    state = AsyncData(await repository.fetchPosts());
+  } catch (e, st) {
+    state = AsyncError(e, st);
+  }
+}
+```
+
+2. **Konversi exception ke tipe lain** (misal `DioException` → custom `AppException`).
+3. **Logging** (kirim error ke Crashlytics/Sentry).
+4. **Fallback** (pakai data cache saat error).
+
+**Aturan praktis:** lewat `build()` → biarkan Riverpod tangani. Di luar `build()` → `try/catch` eksplisit.
+
+### 2.4 Bagian Mana dari Hasil AI yang Anda Perbaiki, dan Mengapa?
+
+| # | Temuan AI | Perbaikan | Alasan |
+|---|---|---|---|
+| 1 | Import `package:week4_api/...` | Ganti ke `week4_networking` | Nama package project beda dari contoh jobsheet |
+| 2 | API Riverpod `FamilyAsyncNotifier` / `AsyncNotifierProviderFamily` | Ganti ke `AsyncNotifierProvider.family` | Riverpod 3 mengubah API-nya |
+| 3 | `Options(receiveTimeout)` di repository | Hapus — timeout sudah terpusat di `createDio()` | Menghindari duplikasi konfigurasi |
+| 4 | `widget_test.dart` bawaan template | Hapus | Test counter tidak relevan, memicu timer Dio menggantung |
+| 5 | Hanya 1 test (field hilang) | Tambah test "semua field null" | Jobsheet minta minimal 1 edge case tambahan |
+| 6 | `commentErrorMessage` duplikat dengan `friendlyErrorMessage` | Pindah ke `network_errors.dart`, satu fungsi | DRY — dipakai banyak tempat |
+
+**Pelajaran:** AI tidak tahu konteks project (nama package, versi library, struktur folder). Verifikasi lewat `flutter analyze` + `flutter test` wajib.
+
+Semua didokumentasikan di [`docs/ai-challenge.md`](docs/ai-challenge.md).
+
+---
+
+## 3. Referensi Pendukung
+
+**Materi kuliah:**
+- Slide Minggu 4: Networking & REST API
+
+**Package & dokumentasi:**
+- [`dio` package](https://pub.dev/packages/dio) — HTTP client untuk Dart/Flutter
+- [`flutter_riverpod`](https://pub.dev/packages/flutter_riverpod) — state management
+- [`go_router`](https://pub.dev/packages/go_router) — routing deklaratif
+- [Riverpod: AsyncNotifier](https://riverpod.dev/docs/providers/async_notifier)
+- [Riverpod: AsyncValue](https://pub.dev/documentation/riverpod/latest/riverpod/AsyncValue-class.html)
+
+**API dummy:**
+- [JSONPlaceholder](https://jsonplaceholder.typicode.com/) — REST API gratis tanpa key
+
+**Tutorial & referensi:**
+- [Flutter cookbook: Fetch data from the internet](https://docs.flutter.dev/cookbook/networking/fetch-data)
+- [Learn Dart in Y Minutes](https://learnxinyminutes.com/docs/dart/)
+- [REST API Tutorial](https://restfulapi.net/)
+
+**Artikel tambahan:**
+- [Clean Architecture di Flutter](https://resocoder.com/flutter-clean-architecture-tdd/) — untuk Week 7
+- [Repository Pattern](https://martinfowler.com/eaaCatalog/repository.html) — Martin Fowler
 
 </blockquote>
 </details>
