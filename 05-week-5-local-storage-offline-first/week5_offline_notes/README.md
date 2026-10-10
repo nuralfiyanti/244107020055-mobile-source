@@ -1110,7 +1110,38 @@ class _AddNoteDialogState extends State<_AddNoteDialog> {
 <br>
 <blockquote>
 
+## Peran AI pada Codelab Ini
 
+AI boleh mengusulkan pilihan storage, tetapi keputusan ada pada kita. Nilai ada pada kualitas perbandingan dan justifikasi, bukan pada kode yang dihasilkan AI.
+
+## AI Prompt Challenge
+
+**Prompt yang diajukan:**
+
+> "Aplikasi Flutter Offline Notes: CRUD catatan + preferensi tema. Bandingkan SharedPreferences, Hive, sqflite (SQLite), dan Drift untuk dua kebutuhan ini. Requirements: Kriteria: kompleksitas query, kebutuhan relasi, reaktivitas (stream), type-safety, ukuran boilerplate, dan kemudahan testing. Beri rekomendasi final: mana untuk preferensi, mana untuk catatan, beserta alasannya dalam 1 tabel. Tunjukkan skema tabel/kotak untuk 1000+ catatan. Jelaskan trade-off setiap pilihan."
+
+Dokumentasi lengkap (prompt, output awal AI, tabel perbandingan, skema, perbaikan, dan hasil testing) ada di [`docs/ai-challenge.md`](docs/ai-challenge.md).
+
+**Rekomendasi AI:** SharedPreferences untuk preferensi tema, sqflite (SQLite) untuk catatan.
+
+## AI Verification Checklist
+
+| Poin Checklist | Hasil | Temuan |
+|---|---|---|
+| AI menempatkan daftar catatan di SharedPreferences? | Lulus | Catatan diarahkan ke SQLite, SharedPreferences hanya untuk preferensi. |
+| Skema mendukung antrean sync, bukan hanya CRUD? | Sebagian | `dirty` dan `updated_at` cukup untuk create/update. Penghapusan belum tertangani karena `deleteNote` memakai `DELETE` langsung. Perlu soft delete (kolom `deleted`). |
+| Klaim "real-time" didukung stream? | Sebagian | Stream ada di Drift dan Hive, tidak ada di sqflite. Pada praktikum ini UI diperbarui lewat `invalidate` provider (manual). |
+| Estimasi boilerplate masuk akal? | Belum terbukti | Hanya sqflite dan SharedPreferences yang dicoba langsung. Hive dan Drift tidak diklaim. |
+| Keputusan final | Lihat di bawah | |
+
+**Keputusan final:** SharedPreferences untuk preferensi tema (satu nilai boolean, tanpa query), sqflite untuk catatan (butuh `ORDER BY updated_at`, filter `dirty = 1`, dan `UPDATE` massal). Drift tidak dipilih karena `build_runner` belum sebanding untuk skala aplikasi ini. Konsekuensinya, mapping dan refresh UI ditulis manual.
+
+**Aturan konflik sync:** last-write-wins berdasarkan `updated_at`.
+
+<br>
+
+</blockquote>
+</details>
 
 
 
