@@ -12,7 +12,7 @@ class MyApp extends StatelessWidget {
     return MaterialApp(
       title: 'Week 5 - Offline Notes',
       theme: ThemeData(colorSchemeSeed: Colors.indigo, useMaterial3: true),
-      home: const SettingsPage(),
+      home: const SettingsPage(),   
     );
   }
 }

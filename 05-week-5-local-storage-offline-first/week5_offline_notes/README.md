@@ -90,7 +90,7 @@ flutter pub add flutter_riverpod shared_preferences sqflite path
 **Hasil:** 32 dependency ter-install, termasuk `flutter_riverpod 3.4.3`, `shared_preferences 2.5.6`, `sqflite 2.4.4+1`, `path 1.9.1`.
 
 Struktur folder: <br>
-
+```text
 lib/
 ├── main.dart
 ├── data/
@@ -103,6 +103,7 @@ lib/
 └── pages/
     ├── settings_page.dart
     └── notes_page.dart
+  ```
 
 ### 2. Repository Preferences (`lib/data/prefs.dart`)
 
@@ -238,8 +239,180 @@ class MyApp extends StatelessWidget {
 <br>
 
 <details>
-<summary><h3>4. Praktikum 2: SQLite dan repository catatan</h3></summary>
+<summary><h3>4. Praktikum 2: SQLite dan Repository Catatan</h3></summary>
+<br>
+<blockquote>
+
+## Ringkasan
+
+Praktikum ini membangun **model catatan** dan **repository SQLite** untuk operasi CRUD (Create, Read, Update, Delete). Setiap catatan memiliki flag `dirty` yang menandai apakah catatan sudah tersinkron dengan server.
+
+Komponen utama:
+
+1. **Model `Note`** - representasi catatan dengan konversi `toMap`/`fromMap`.
+2. **Pembuka database** - fungsi `openNotesDb()` yang membuat 2 tabel: `notes` dan `cached_posts`.
+3. **Repository `NoteRepository`** - satu-satunya pintu akses database, dengan constructor yang bisa menerima `openDb` untuk testing.
+
+---
+
+## Langkah Praktikum beserta Bukti Screenshot
+
+### 1. Model Catatan (`lib/data/local/note.dart`)
+
+```dart
+class Note {
+  const Note({
+    this.id,
+    required this.title,
+    this.body = '',
+    required this.updatedAt,
+    this.dirty = false,
+  });
+
+  final int? id;
+  final String title;
+  final String body;
+  final DateTime updatedAt;
+  final bool dirty;
+
+  Map<String, Object?> toMap() => {
+        'id': id,
+        'title': title,
+        'body': body,
+        'updated_at': updatedAt.toIso8601String(),
+        'dirty': dirty ? 1 : 0,
+      };
+
+  factory Note.fromMap(Map<String, Object?> map) {
+    return Note(
+      id: (map['id'] as num?)?.toInt(),
+      title: map['title'] as String? ?? '',
+      body: map['body'] as String? ?? '',
+      updatedAt: DateTime.tryParse(map['updated_at'] as String? ?? '') ??
+          DateTime.fromMillisecondsSinceEpoch(0),
+      dirty: ((map['dirty'] as num?)?.toInt() ?? 0) == 1,
+    );
+  }
+}
+
+```
+
+Pembuka Database `lib/data/local/db.dart` <br>
+
+```dart
+import 'package:path/path.dart' as p;
+import 'package:sqflite/sqflite.dart';
+
+Future<Database> openNotesDb() async {
+  final dir = await getDatabasesPath();
+  return openDatabase(
+    p.join(dir, 'offline_notes.db'),
+    version: 1,
+    onCreate: (db, version) async {
+      await db.execute('''
+        CREATE TABLE notes(
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          title TEXT NOT NULL,
+          body TEXT NOT NULL DEFAULT '',
+          updated_at TEXT NOT NULL,
+          dirty INTEGER NOT NULL DEFAULT 0
+        )
+      ''');
+      await db.execute('''
+        CREATE TABLE cached_posts(
+          id INTEGER PRIMARY KEY,
+          payload TEXT NOT NULL,
+          cached_at TEXT NOT NULL
+        )
+      ''');
+    },
+  );
+}
+
+```
+
+Repository CRUD `lib/data/repositories/note_repository.dart` <br>
+
+```dart
+import 'package:sqflite/sqflite.dart';
+import '../local/db.dart';
+import '../local/note.dart';
+
+class NoteRepository {
+  NoteRepository({Future<Database> Function()? openDb})
+      : _openDb = openDb ?? openNotesDb;
+
+  final Future<Database> Function() _openDb;
+
+  Future<List<Note>> fetchNotes() async {
+    final db = await _openDb();
+    final rows = await db.query('notes', orderBy: 'updated_at DESC');
+    return rows.map(Note.fromMap).toList();
+  }
+
+  Future<Note> addNote({required String title, String body = ''}) async {
+    final db = await _openDb();
+    final note = Note(
+      title: title,
+      body: body,
+      updatedAt: DateTime.now(),
+      dirty: true,
+    );
+    final id = await db.insert('notes', note.toMap());
+    return Note(
+      id: id,
+      title: note.title,
+      body: note.body,
+      updatedAt: note.updatedAt,
+      dirty: true,
+    );
+  }
+
+  Future<void> deleteNote(int id) async {
+    final db = await _openDb();
+    await db.delete('notes', where: 'id = ?', whereArgs: [id]);
+  }
+
+  Future<int> countDirty() async {
+    final db = await _openDb();
+    final rows = await db.rawQuery(
+      'SELECT COUNT(*) AS c FROM notes WHERE dirty = 1',
+    );
+    return ((rows.first['c'] as num?)?.toInt() ?? 0);
+  }
+
+  Future<void> markAllSynced() async {
+    final db = await _openDb();
+    await db.update('notes', {'dirty': 0}, where: 'dirty = 1');
+  }
+}
+
+```
+
+Mengapa constructor menerima openDb? Agar test bisa menyuntikkan database palsu/in-memory tanpa menyentuh SQLite sungguhan. Pola injeksi ini dipakai lagi di Minggu 12 (Testing & QA). <br>
+
+Halaman catatan offline <br>
+
+Catatan tersimpan di perangkat, jadi halaman ini tetap berfungsi penuh dalam mode pesawat. Tampilkan badge jumlah catatan yang belum tersinkron (dirty) sebagai indikator antrean sync.
+
+
+</blockquote>
+</details>
+
+
+<br>
+
+<details>
+<summary><h3>5. Praktikum 3: Cache-first dan antrean sync</h3></summary>
 <br>
 <blockquote>
 
 
+
+
+
+</blockquote>
+</details>
+
+
+<br>
