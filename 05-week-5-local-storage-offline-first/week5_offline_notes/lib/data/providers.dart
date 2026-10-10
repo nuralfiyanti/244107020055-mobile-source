@@ -1,16 +1,19 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'prefs.dart';
+import 'local/note.dart';
+import 'repositories/note_repository.dart';
 
+// PREFERENCES
 final prefsRepositoryProvider = Provider((ref) => PrefsRepository());
 
 final darkModeProvider =
     AsyncNotifierProvider<DarkModeNotifier, bool>(DarkModeNotifier.new);
 
 class DarkModeNotifier extends AsyncNotifier<bool> {
-@override
-Future<bool> build() {
-  return ref.watch(prefsRepositoryProvider).getDarkMode();  // ← TAMBAH RETURN
-}
+  @override
+  Future<bool> build() {
+    return ref.watch(prefsRepositoryProvider).getDarkMode();
+  }
 
   Future<void> toggle() async {
     final next = !(state.value ?? false);
@@ -21,3 +24,16 @@ Future<bool> build() {
     });
   }
 }
+
+// NOTES
+final noteRepositoryProvider = Provider((ref) => NoteRepository());
+
+final notesProvider = FutureProvider<List<Note>>((ref) async {
+  final repo = ref.watch(noteRepositoryProvider);
+  return repo.fetchNotes();
+});
+
+final dirtyCountProvider = FutureProvider<int>((ref) async {
+  final repo = ref.watch(noteRepositoryProvider);
+  return repo.countDirty();
+});

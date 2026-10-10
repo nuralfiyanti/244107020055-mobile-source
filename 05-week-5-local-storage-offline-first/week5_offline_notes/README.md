@@ -8,15 +8,14 @@
 
 ## Struktur Project
 
-- `week5_offline_notes/` : project Flutter utama
-- `week5_offline_notes/lib/` : kode aplikasi
-- `week5_offline_notes/test/` : unit dan widget test
-- `week5_offline_notes/screenshots/` : tangkapan layar hasil
+- `lib/` : kode aplikasi (`data/`, `pages/`)
+- `test/` : unit dan widget test
+- `docs/` : dokumentasi AI Challenge
+- `screenshots/` : tangkapan layar hasil
 
 ## Cara Menjalankan
 
 ```bash
-cd week5_offline_notes
 flutter pub get
 flutter run
 ```
@@ -220,17 +219,12 @@ class MyApp extends StatelessWidget {
 }
 ```
 
-### 4. Hasil
-
-![alt text](<screenshots/WhatsApp Image 2026-10-10 at 03.30.55.jpeg>) <br>
-
 ### 5. Verifikasi
 
-`flutter analyze` 
-![alt text](<screenshots/Screenshot 2026-10-10 025850.png>) <br>
-
-`flutter test`  
-![alt text](<screenshots/Screenshot 2026-10-10 025835.png>) <br>
+| Bukti Tampilan | Deskripsi Antarmuka |
+| :---: | :--- |
+| ![flutter analyze](<screenshots/Screenshot 2026-10-10 025850.png>) | **`flutter analyze`** — No issues found! |
+| ![flutter test](<screenshots/Screenshot 2026-10-10 025835.png>) | **`flutter test`** — +1: All tests passed! |
 
 </blockquote>
 </details>
@@ -389,16 +383,275 @@ class NoteRepository {
 
 ```
 
-Mengapa constructor menerima openDb? Agar test bisa menyuntikkan database palsu/in-memory tanpa menyentuh SQLite sungguhan. Pola injeksi ini dipakai lagi di Minggu 12 (Testing & QA). <br>
+ `lib/data/repositories/providers.dart` <br>
 
-Halaman catatan offline <br>
+ ```dart
+ import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'prefs.dart';
+import 'local/note.dart';
+import 'repositories/note_repository.dart';
 
-Catatan tersimpan di perangkat, jadi halaman ini tetap berfungsi penuh dalam mode pesawat. Tampilkan badge jumlah catatan yang belum tersinkron (dirty) sebagai indikator antrean sync.
+// PREFERENCES
+final prefsRepositoryProvider = Provider((ref) => PrefsRepository());
 
+final darkModeProvider =
+    AsyncNotifierProvider<DarkModeNotifier, bool>(DarkModeNotifier.new);
+
+class DarkModeNotifier extends AsyncNotifier<bool> {
+  @override
+  Future<bool> build() {
+    return ref.watch(prefsRepositoryProvider).getDarkMode();
+  }
+
+  Future<void> toggle() async {
+    final next = !(state.value ?? false);
+    state = const AsyncLoading();
+    state = await AsyncValue.guard(() async {
+      await ref.read(prefsRepositoryProvider).setDarkMode(next);
+      return next;
+    });
+  }
+}
+
+// NOTES
+final noteRepositoryProvider = Provider((ref) => NoteRepository());
+
+final notesProvider = FutureProvider<List<Note>>((ref) async {
+  final repo = ref.watch(noteRepositoryProvider);
+  return repo.fetchNotes();
+});
+
+final dirtyCountProvider = FutureProvider<int>((ref) async {
+  final repo = ref.watch(noteRepositoryProvider);
+  return repo.countDirty();
+});
+
+```
+
+ `lib/pages/notes_page.dart` <br>
+
+ ``` dart
+ import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../data/providers.dart';
+
+class NotesPage extends ConsumerWidget {
+  const NotesPage({super.key});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final notesAsync = ref.watch(notesProvider);
+    final dirtyAsync = ref.watch(dirtyCountProvider);
+
+    return Scaffold(
+      appBar: AppBar(
+        title: const Text('Catatan Offline'),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.refresh),
+            onPressed: () {
+              ref.invalidate(notesProvider);
+              ref.invalidate(dirtyCountProvider);
+            },
+          ),
+        ],
+      ),
+      body: Column(
+        children: [
+          // Banner dirty
+          dirtyAsync.when(
+            loading: () => const SizedBox.shrink(),
+            error: (_, _) => const SizedBox.shrink(),
+            data: (count) => Container(
+              width: double.infinity,
+              padding: const EdgeInsets.all(12),
+              color: count > 0
+                  ? Colors.orange.shade100
+                  : Colors.green.shade100,
+              child: Row(
+                children: [
+                  Icon(
+                    count > 0 ? Icons.cloud_off : Icons.cloud_done,
+                    color: count > 0 ? Colors.orange : Colors.green,
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      count > 0
+                          ? '$count catatan belum tersinkron'
+                          : 'Semua catatan sudah tersinkron',
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+          // Daftar catatan
+          Expanded(
+            child: notesAsync.when(
+              loading: () =>
+                  const Center(child: CircularProgressIndicator()),
+              error: (err, _) => Center(child: Text('Error: $err')),
+              data: (notes) {
+                if (notes.isEmpty) {
+                  return const Center(child: Text('Belum ada catatan.'));
+                }
+                return ListView.builder(
+                  itemCount: notes.length,
+                  itemBuilder: (context, i) {
+                    final note = notes[i];
+                    return Card(
+                      margin: const EdgeInsets.symmetric(
+                          horizontal: 12, vertical: 6),
+                      child: ListTile(
+                        leading: CircleAvatar(
+                          child: Text(note.id.toString()),
+                        ),
+                        title: Text(note.title),
+                        subtitle: Row(
+                          children: [
+                            Icon(
+                              note.dirty
+                                  ? Icons.cloud_off
+                                  : Icons.cloud_done,
+                              size: 14,
+                              color: note.dirty
+                                  ? Colors.orange
+                                  : Colors.green,
+                            ),
+                            const SizedBox(width: 4),
+                            Text(
+                              note.dirty
+                                  ? 'Belum tersinkron'
+                                  : 'Sudah tersinkron',
+                              style: const TextStyle(fontSize: 12),
+                            ),
+                          ],
+                        ),
+                        trailing: IconButton(
+                          icon: const Icon(Icons.delete_outline),
+                          onPressed: () async {
+                            final repo =
+                                ref.read(noteRepositoryProvider);
+                            await repo.deleteNote(note.id!);
+                            ref.invalidate(notesProvider);
+                            ref.invalidate(dirtyCountProvider);
+                          },
+                        ),
+                      ),
+                    );
+                  },
+                );
+              },
+            ),
+          ),
+        ],
+      ),
+      floatingActionButton: FloatingActionButton(
+        onPressed: () async {
+          final repo = ref.read(noteRepositoryProvider);
+          await repo.addNote(
+            title: 'Catatan ${DateTime.now().second}',
+            body: 'deadline 1 minggu',
+          );
+          ref.invalidate(notesProvider);
+          ref.invalidate(dirtyCountProvider);
+        },
+        child: const Icon(Icons.add),
+      ),
+    );
+  }
+}
+
+```
+
+`lib/main.dart`
+
+```dart
+import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'data/providers.dart';
+import 'pages/notes_page.dart';
+import 'pages/settings_page.dart';
+
+void main() => runApp(const ProviderScope(child: MyApp()));
+
+class MyApp extends ConsumerWidget {
+  const MyApp({super.key});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final darkMode = ref.watch(darkModeProvider);
+
+    return MaterialApp(
+      title: 'Week 5 - Offline Notes',
+      theme: ThemeData(
+        colorSchemeSeed: Colors.indigo,
+        brightness: Brightness.light,
+        useMaterial3: true,
+      ),
+      darkTheme: ThemeData(
+        colorSchemeSeed: Colors.indigo,
+        brightness: Brightness.dark,
+        useMaterial3: true,
+      ),
+      themeMode: darkMode.value == true ? ThemeMode.dark : ThemeMode.light,
+      home: const HomeShell(),
+    );
+  }
+}
+
+class HomeShell extends StatefulWidget {
+  const HomeShell({super.key});
+
+  @override
+  State<HomeShell> createState() => _HomeShellState();
+}
+
+class _HomeShellState extends State<HomeShell> {
+  int _index = 0;
+
+  static const _pages = [
+    NotesPage(),
+    SettingsPage(),
+  ];
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      body: _pages[_index],
+      bottomNavigationBar: NavigationBar(
+        selectedIndex: _index,
+        onDestinationSelected: (i) => setState(() => _index = i),
+        destinations: const [
+          NavigationDestination(
+            icon: Icon(Icons.note),
+            label: 'Catatan',
+          ),
+          NavigationDestination(
+            icon: Icon(Icons.settings),
+            label: 'Pengaturan',
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+```
+
+### 5. Verifikasi dan Hasil
+
+| Bukti Tampilan | Deskripsi Antarmuka |
+| :---: | :--- |
+| ![flutter analyze](<screenshots/Screenshot 2026-10-10 212301.png>) | **`flutter analyze`** — No issues found! |
+| ![flutter test](<screenshots/Screenshot 2026-10-10 212311.png>) | **`flutter test`** — +1: All tests passed! |
+| ![Dark Mode OFF](<screenshots/WhatsApp Image 2026-10-10 at 03.30.55.jpeg>) | **Pengaturan — Light**: toggle Dark Mode OFF, tema terang. |
+| ![Dark Mode ON](<screenshots/WhatsApp Image 2026-10-10 at 21.12.59.jpeg>) | **Pengaturan — Dark**: toggle Dark Mode ON, tema gelap. |
+| ![Catatan Offline](<screenshots/WhatsApp Image 2026-10-10 at 21.13.00.jpeg>) | **Catatan Offline**: daftar catatan dengan badge dirty, tombol hapus, dan FAB (+). |
 
 </blockquote>
 </details>
-
 
 <br>
 
@@ -410,9 +663,3 @@ Catatan tersimpan di perangkat, jadi halaman ini tetap berfungsi penuh dalam mod
 
 
 
-
-</blockquote>
-</details>
-
-
-<br>
