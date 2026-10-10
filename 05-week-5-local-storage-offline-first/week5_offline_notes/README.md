@@ -1412,51 +1412,19 @@ flutter test    → +5: All tests passed!
 
 ### 1. Mengapa Daftar Catatan Tidak Boleh Disimpan di SharedPreferences? Apa yang Rusak Jika Aturan Ini Dilanggar?
 
-`SharedPreferences` hanya mendukung **key-value primitif** (string, int, bool, list of string) tanpa query. Jika daftar catatan disimpan sebagai **satu string JSON besar**, dampaknya:
+SharedPreferences hanya mendukung penyimpanan key-value primitif seperti string, integer, boolean, dan list of string, tanpa kemampuan query. Apabila daftar catatan disimpan sebagai satu string JSON besar, setiap perubahan data, baik penambahan, pengubahan, maupun penghapusan, mengharuskan proses baca dan tulis ulang terhadap keseluruhan data. Selain itu, tidak tersedia mekanisme ORDER BY sehingga pengurutan harus dilakukan di memori dan menjadi lambat ketika jumlah catatan mencapai ribuan. Filter seperti WHERE dirty = 1 juga tidak dapat diterapkan secara langsung, sehingga proses sinkronisasi menjadi tidak efisien. Risiko korupsi data juga meningkat karena kegagalan di tengah proses penulisan dapat merusak seluruh daftar. Oleh karena itu, SharedPreferences hanya sesuai untuk preferensi kecil seperti tema, sedangkan koleksi catatan sebaiknya disimpan pada database relasional seperti SQLite.
 
-- **Setiap perubahan** (tambah/edit/hapus) harus **baca-tulis seluruh data** — bukan operasi parsial.
-- **Tidak ada `ORDER BY`** — pengurutan harus di memori, lambat untuk 1000+ catatan.
-- **Tidak ada filter** — `WHERE dirty = 1` harus di-scan manual.
-- **Risiko korup** — jika proses gagal di tengah penulisan, seluruh daftar bisa rusak.
-- **Sinkronisasi rapuh** — sulit menandai satu catatan sebagai "belum sync".
+### 2. Kapan Cache-First Cukup, dan Kapan Anda Membutuhkan Strategi Lain (Misalnya Network-First untuk Data Harga Real-Time)?
 
-**Kesimpulan:** `SharedPreferences` untuk preferensi kecil (tema), **SQLite** untuk koleksi catatan.
-
-### 2. Kapan Cache-First Cukup, Kapan Membutuhkan Strategi Lain (Misalnya Network-First)?
-
-**Cache-first cukup** ketika:
-- Data **jarang berubah** (artikel, daftar post, katalog statis).
-- Sedikit usang **tidak masalah** (daftar berita umum).
-- Prioritas: **UI tampil instan** tanpa menunggu jaringan.
-
-**Network-first diperlukan** ketika:
-- Data **harus selalu akurat** — misal **harga saham real-time**, saldo, atau status pembayaran.
-- Menampilkan cache lama berisiko **menyesatkan pengguna**.
-- Contoh lain: keranjang belanja, status pesanan, hasil pencarian real-time.
-
-**Aturan praktis:** kalau data punya **waktu kedaluwarsa ketat**, gunakan network-first. Kalau data **stabil**, cache-first.
+Pendekatan cache-first cukup digunakan ketika data bersifat jarang berubah dan toleran terhadap sedikit keterlambatan pembaruan, misalnya daftar artikel, katalog statis, atau daftar post. Pada kondisi tersebut, prioritas utama adalah menampilkan antarmuka secara instan tanpa menunggu respons jaringan. Sebaliknya, pendekatan network-first diperlukan ketika data harus selalu akurat dan keterlambatan pembaruan berpotensi menyesatkan pengguna, seperti harga saham real-time, saldo rekening, status pembayaran, atau keranjang belanja. Secara umum, apabila data memiliki masa kedaluwarsa yang ketat, strategi network-first lebih tepat digunakan, sedangkan untuk data yang stabil, cache-first memberikan pengalaman pengguna yang lebih baik.
 
 ### 3. Bagaimana Dirty Flag Berubah Menjadi Antrean Sync Tanpa Memblokir UI? Kapan Antrean Terpisah (Tabel Outbox) Menjadi Perlu?
 
-**Cara kerja dirty flag:**
-
-1. **Tulis lokal dulu** — `addNote` langsung insert ke SQLite dengan `dirty = 1`.
-2. **UI langsung responsif** — tidak menunggu jaringan.
-3. **Sync terpisah** — `syncNotes(repo)` dipanggil manual (atau otomatis saat online) → hitung dirty → simulasi upload → `markAllSynced()` (set `dirty = 0`).
-4. **Badge update** — banner di AppBar menampilkan jumlah dirty.
-
-**UI tidak diblokir** karena operasi jaringan tidak terjadi di jalur kritis.
-
-**Kapan tabel outbox terpisah perlu:**
-
-- Operasi **beragam** (create, update, delete) — bukan cuma insert.
-- **Urutan operasi** harus terjaga (create → update → delete).
-- **Retry per-operasi** dengan status (pending, in-flight, failed, success).
-- **Konflik per-field** membutuhkan aturan resolusi lebih rumit.
-
-**Untuk project ini:** satu kolom `dirty` cukup karena operasinya sederhana (CRUD + last-write-wins).
+Mekanisme dirty flag bekerja dengan cara menuliskan data ke SQLite terlebih dahulu dan menandainya dengan nilai dirty = 1. Dengan demikian, antarmuka pengguna dapat langsung merespons tanpa menunggu proses jaringan selesai. Proses sinkronisasi dijalankan secara terpisah melalui fungsi syncNotes yang menghitung jumlah catatan dirty, melakukan simulasi unggah, kemudian memanggil markAllSynced untuk mengubah nilai dirty menjadi nol. Pendekatan ini membuat antarmuka tidak terblokir karena operasi jaringan tidak berada pada jalur kritis. Tabel outbox terpisah menjadi diperlukan ketika operasi yang dilakukan beragam, misalnya create, update, dan delete, urutan operasi harus terjaga, setiap operasi membutuhkan mekanisme retry dengan status tersendiri, atau resolusi konflik memerlukan aturan yang lebih kompleks. Untuk proyek ini, satu kolom dirty dinilai memadai karena operasi yang dilakukan masih sederhana dan menggunakan aturan last-write-wins.
 
 ### 4. Bagian Mana dari Rekomendasi AI yang Anda Tolak, dan Mengapa?
+
+Rekomendasi AI mengenai pemilihan SharedPreferences untuk preferensi dan SQLite untuk catatan diterima karena sesuai dengan kebutuhan proyek. Namun, beberapa klaim AI perlu dikoreksi. Pertama, klaim bahwa sqflite memiliki kemampuan reaktivitas tidak tepat karena sqflite tidak menyediakan fungsi watch, sehingga pembaruan antarmuka pada proyek ini dilakukan melalui ref.invalidate secara manual. Kedua, skema yang diusulkan AI mendukung antrean sinkronisasi hanya sebagian karena fungsi deleteNote menggunakan operasi DELETE langsung sehingga tidak tercatat dalam antrean sync. Untuk proyek berskala lebih besar, diperlukan mekanisme soft delete dengan menambahkan kolom deleted. Ketiga, estimasi ukuran boilerplate untuk Hive dan Drift tidak diverifikasi secara langsung karena hanya SQLite dan SharedPreferences yang diuji pada proyek ini. Keempat, klaim mengenai pembaruan real-time tidak didukung oleh stream database, melainkan hanya melalui invalidate provider. Dengan demikian, meskipun AI mampu memberikan perbandingan yang objektif, verifikasi terhadap kode yang benar-benar dijalankan tetap menjadi langkah yang wajib.
 
 Rekomendasi AI (SharedPreferences untuk preferensi, SQLite untuk catatan) **diterima** — sesuai kebutuhan. Namun beberapa klaim AI **dikoreksi**:
 
@@ -1466,8 +1434,6 @@ Rekomendasi AI (SharedPreferences untuk preferensi, SQLite untuk catatan) **dite
 | Skema mendukung antrean sync penuh | ⚠️ Sebagian | `deleteNote` pakai `DELETE` langsung, tidak masuk antrean sync — perlu **soft delete** (`deleted` column) untuk project nyata |
 | Estimasi boilerplate Hive & Drift | ❌ Tidak diverifikasi | Hanya SQLite + SharedPreferences yang dicoba langsung |
 | Klaim "real-time" | ❌ Tidak didukung stream | Riverpod pakai `invalidate`, bukan stream database |
-
-**Pelajaran:** AI bisa memberi perbandingan objektif, tapi **verifikasi terhadap kode nyata** tetap wajib.
 
 ---
 
