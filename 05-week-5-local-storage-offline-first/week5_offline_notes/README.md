@@ -1375,6 +1375,128 @@ flutter test    → +5: All tests passed!
 </details>
 
 <details>
-<summary><h3>8. Tugas, refleksi, dan referensi</h3></summary>
+<summary><h3>8. Tugas, Refleksi, dan Referensi</h3></summary>
 <br>
 <blockquote>
+
+## Mini Project / Industry Challenge
+
+### Ringkasan Proyek
+
+**Tujuan:** Menerapkan penyimpanan lokal dan pola offline-first pada aplikasi Flutter.
+
+**Fitur Utama:**
+
+- **Preferensi tema** gelap/terang + waktu terakhir dibuka, disimpan via `SharedPreferences`.
+- **CRUD catatan** persisten via SQLite (`sqflite`) melalui repository lokal + Riverpod, daftar diurutkan `updated_at` terbaru.
+- **Offline-first:** cache-first untuk data bacaan, dirty flag + `syncNotes` untuk tulisan, aturan konflik eksplisit (**last-write-wins** berdasarkan `updated_at`).
+- **Mode pesawat:** catatan tetap bisa dibaca, ditambah, dan dihapus tanpa internet.
+- **Badge dirty** akurat sebelum/sesudah sync; cache posts tampil tanpa internet.
+- **Halaman detail catatan** dengan GoRouter (`/note/:id`).
+
+**Stack Teknologi:** Flutter, Dart, `flutter_riverpod`, `shared_preferences`, `sqflite`, `path`, `go_router`.
+
+### Bukti Visual
+
+| Bukti Tampilan | Deskripsi |
+| :---: | :--- |
+| <img src="screenshots/WhatsApp Image 2026-10-10 at 23.03.43.jpeg" width="250"> | **Mode Pesawat — Catatan** — daftar catatan tetap tampil, badge "Semua catatan sudah tersinkron". |
+| <img src="screenshots/WhatsApp Image 2026-10-10 at 23.03.44 (1).jpeg" width="250"> | **Mode Pesawat — Posts Cache** — daftar post tetap tampil dari cache lokal meski tanpa internet. |
+| <img src="screenshots/WhatsApp Image 2026-10-11 at 02.02.40.jpeg" width="250"> | **Tambah Catatan Baru** — dialog input judul, catatan otomatis ditandai dirty. |
+| <img src="screenshots/WhatsApp Image 2026-10-11 at 02.02.41.jpeg" width="250"> | **Badge Sebelum Sync** — banner orange menampilkan jumlah catatan belum tersinkron. |
+| <img src="screenshots/WhatsApp Image 2026-10-11 at 02.02.42.jpeg" width="250"> | **Badge Sesudah Sync** — banner hijau, SnackBar konfirmasi "Semua catatan berhasil disinkronkan". |
+
+---
+
+## Refleksi
+
+### 1. Mengapa Daftar Catatan Tidak Boleh Disimpan di SharedPreferences? Apa yang Rusak Jika Aturan Ini Dilanggar?
+
+`SharedPreferences` hanya mendukung **key-value primitif** (string, int, bool, list of string) tanpa query. Jika daftar catatan disimpan sebagai **satu string JSON besar**, dampaknya:
+
+- **Setiap perubahan** (tambah/edit/hapus) harus **baca-tulis seluruh data** — bukan operasi parsial.
+- **Tidak ada `ORDER BY`** — pengurutan harus di memori, lambat untuk 1000+ catatan.
+- **Tidak ada filter** — `WHERE dirty = 1` harus di-scan manual.
+- **Risiko korup** — jika proses gagal di tengah penulisan, seluruh daftar bisa rusak.
+- **Sinkronisasi rapuh** — sulit menandai satu catatan sebagai "belum sync".
+
+**Kesimpulan:** `SharedPreferences` untuk preferensi kecil (tema), **SQLite** untuk koleksi catatan.
+
+### 2. Kapan Cache-First Cukup, Kapan Membutuhkan Strategi Lain (Misalnya Network-First)?
+
+**Cache-first cukup** ketika:
+- Data **jarang berubah** (artikel, daftar post, katalog statis).
+- Sedikit usang **tidak masalah** (daftar berita umum).
+- Prioritas: **UI tampil instan** tanpa menunggu jaringan.
+
+**Network-first diperlukan** ketika:
+- Data **harus selalu akurat** — misal **harga saham real-time**, saldo, atau status pembayaran.
+- Menampilkan cache lama berisiko **menyesatkan pengguna**.
+- Contoh lain: keranjang belanja, status pesanan, hasil pencarian real-time.
+
+**Aturan praktis:** kalau data punya **waktu kedaluwarsa ketat**, gunakan network-first. Kalau data **stabil**, cache-first.
+
+### 3. Bagaimana Dirty Flag Berubah Menjadi Antrean Sync Tanpa Memblokir UI? Kapan Antrean Terpisah (Tabel Outbox) Menjadi Perlu?
+
+**Cara kerja dirty flag:**
+
+1. **Tulis lokal dulu** — `addNote` langsung insert ke SQLite dengan `dirty = 1`.
+2. **UI langsung responsif** — tidak menunggu jaringan.
+3. **Sync terpisah** — `syncNotes(repo)` dipanggil manual (atau otomatis saat online) → hitung dirty → simulasi upload → `markAllSynced()` (set `dirty = 0`).
+4. **Badge update** — banner di AppBar menampilkan jumlah dirty.
+
+**UI tidak diblokir** karena operasi jaringan tidak terjadi di jalur kritis.
+
+**Kapan tabel outbox terpisah perlu:**
+
+- Operasi **beragam** (create, update, delete) — bukan cuma insert.
+- **Urutan operasi** harus terjaga (create → update → delete).
+- **Retry per-operasi** dengan status (pending, in-flight, failed, success).
+- **Konflik per-field** membutuhkan aturan resolusi lebih rumit.
+
+**Untuk project ini:** satu kolom `dirty` cukup karena operasinya sederhana (CRUD + last-write-wins).
+
+### 4. Bagian Mana dari Rekomendasi AI yang Anda Tolak, dan Mengapa?
+
+Rekomendasi AI (SharedPreferences untuk preferensi, SQLite untuk catatan) **diterima** — sesuai kebutuhan. Namun beberapa klaim AI **dikoreksi**:
+
+| Klaim AI | Koreksi | Alasan |
+|---|---|---|
+| Sqflite punya reaktivitas | ❌ Tidak | Sqflite tidak punya `watch()`; UI di project ini diperbarui lewat `ref.invalidate` (manual) |
+| Skema mendukung antrean sync penuh | ⚠️ Sebagian | `deleteNote` pakai `DELETE` langsung, tidak masuk antrean sync — perlu **soft delete** (`deleted` column) untuk project nyata |
+| Estimasi boilerplate Hive & Drift | ❌ Tidak diverifikasi | Hanya SQLite + SharedPreferences yang dicoba langsung |
+| Klaim "real-time" | ❌ Tidak didukung stream | Riverpod pakai `invalidate`, bukan stream database |
+
+**Pelajaran:** AI bisa memberi perbandingan objektif, tapi **verifikasi terhadap kode nyata** tetap wajib.
+
+---
+
+## Referensi Pendukung
+
+**Materi kuliah:**
+- Slide Week 5: Local Storage & Offline First
+
+**Package & dokumentasi:**
+- [Flutter cookbook: Store key-value data](https://docs.flutter.dev/cookbook/persistence/key-value)
+- [`shared_preferences` package](https://pub.dev/packages/shared_preferences)
+- [`sqflite` package](https://pub.dev/packages/sqflite)
+- [`hive` package (alternatif NoSQL)](https://pub.dev/packages/hive)
+- [`drift` package (alternatif reaktif)](https://pub.dev/packages/drift)
+- [`go_router` package](https://pub.dev/packages/go_router)
+
+**State management:**
+- [Riverpod: AsyncNotifier dan AsyncValue](https://riverpod.dev/docs/providers/async_notifier)
+- [Riverpod: FutureProvider](https://riverpod.dev/docs/providers/future_provider)
+
+**Tutorial:**
+- [Learn Dart in Y Minutes](https://learnxinyminutes.com/docs/dart/)
+- [SQLite Tutorial](https://www.sqlitetutorial.net/)
+
+**Artikel tambahan:**
+- [Offline-First Architecture](https://offlinefirst.org/)
+- [Repository Pattern — Martin Fowler](https://martinfowler.com/eaaCatalog/repository.html)
+
+<br>
+
+</blockquote>
+</details>
