@@ -660,6 +660,460 @@ class _HomeShellState extends State<HomeShell> {
 <br>
 <blockquote>
 
+## Ringkasan
+
+Praktikum ini menerapkan pola **offline-first**: data dari API ditampilkan **dari cache lokal dulu** (cache-first read), lalu refresh dari jaringan di background. Ditambah **antrean sinkronisasi** catatan dirty dengan simulasi server (delay), dan **toggle simulasi offline** untuk demo deterministik tanpa bergantung pada Wi-Fi.
+
+Komponen utama:
+
+1. **Dio client** (`lib/data/api_client.dart`) - konfigurasi base URL JSONPlaceholder, timeout, interceptor logging.
+2. **Model `Post`** (`lib/data/models/post.dart`) - dipakai ulang dari Minggu 4.
+3. **Sync logic** (`lib/data/sync.dart`) - `readCachedPosts`, `saveCachedPosts`, `PostsCacheNotifier`, `syncNotes`, dan `forceOfflineProvider`.
+4. **Halaman Posts Cache** (`lib/pages/posts_page.dart`) - menampilkan cache posts + toggle offline.
+
+### Tambah dio
+![alt text](<screenshots/Screenshot 2026-10-10 214119.png>)
+
+Buat file `lib/data/api_client.dart`
+
+```dart
+import 'package:dio/dio.dart';
+
+Dio createDio() {
+  final dio = Dio(
+    BaseOptions(
+      baseUrl: 'https://jsonplaceholder.typicode.com',
+      connectTimeout: const Duration(seconds: 10),
+      receiveTimeout: const Duration(seconds: 10),
+      headers: {'Accept': 'application/json'},
+    ),
+  );
+  dio.interceptors.add(
+    LogInterceptor(requestBody: true, responseBody: false),
+  );
+  return dio;
+}
+
+```
+
+Buat file `lib/data/models/post.dar`
+
+```dart
+class Post {
+  const Post({
+    required this.userId,
+    required this.id,
+    required this.title,
+    required this.body,
+  });
+
+  final int userId;
+  final int id;
+  final String title;
+  final String body;
+
+  factory Post.fromJson(Map<String, dynamic> json) {
+    return Post(
+      userId: (json['userId'] as num?)?.toInt() ?? 0,
+      id: (json['id'] as num?)?.toInt() ?? 0,
+      title: json['title'] as String? ?? '',
+      body: json['body'] as String? ?? '',
+    );
+  }
+
+  Map<String, dynamic> toJson() => {
+        'userId': userId,
+        'id': id,
+        'title': title,
+        'body': body,
+      };
+}
+
+```
+Buat file `lib/data/sync.dart`
+
+```dart
+import 'dart:async';
+import 'dart:convert';
+import 'package:dio/dio.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:sqflite/sqflite.dart';
+import 'api_client.dart';
+import 'local/db.dart';
+import 'models/post.dart';
+import 'repositories/note_repository.dart';
+
+// Dio Provider 
+final dioProvider = Provider<Dio>((ref) => createDio());
+
+// Cache Posts 
+Future<List<Post>> readCachedPosts() async {
+  final db = await openNotesDb();
+  final rows = await db.query('cached_posts', orderBy: 'id ASC');
+  return rows.map((row) {
+    final payload = row['payload'] as String? ?? '{}';
+    final json = Map<String, dynamic>.from(
+      (payload.isEmpty ? {} : jsonDecode(payload)) as Map,
+    );
+    return Post.fromJson(json);
+  }).toList();
+}
+
+Future<void> saveCachedPosts(List<Post> posts) async {
+  final db = await openNotesDb();
+  final batch = db.batch();
+  for (final post in posts) {
+    batch.insert(
+      'cached_posts',
+      {
+        'id': post.id,
+        'payload': jsonEncode(post.toJson()),
+        'cached_at': DateTime.now().toIso8601String(),
+      },
+      conflictAlgorithm: ConflictAlgorithm.replace,
+    );
+  }
+  await batch.commit(noResult: true);
+}
+
+// Posts Cache Notifier 
+class PostsCacheNotifier extends AsyncNotifier<List<Post>> {
+  @override
+  Future<List<Post>> build() async {
+    return _loadCacheFirst();
+  }
+
+  Future<List<Post>> _loadCacheFirst() async {
+    final cached = await readCachedPosts();
+    unawaited(refreshPostsInBackground());
+    return cached;
+  }
+
+  Future<void> refreshPostsInBackground() async {
+    if (ref.read(forceOfflineProvider)) return;
+    try {
+      final dio = ref.read(dioProvider);
+      final response = await dio.get<List>('/posts');
+      final data = response.data ?? [];
+      final posts = data
+          .whereType<Map<String, dynamic>>()
+          .map(Post.fromJson)
+          .toList();
+      await saveCachedPosts(posts);
+      state = AsyncData(posts);
+    } catch (_) {}
+  }
+}
+
+final postsCacheProvider =
+    AsyncNotifierProvider<PostsCacheNotifier, List<Post>>(
+  PostsCacheNotifier.new,
+  retry: (retryCount, error) => null,
+);
+
+// Sync Notes
+Future<int> syncNotes(NoteRepository repo) async {
+  final dirtyCount = await repo.countDirty();
+  if (dirtyCount == 0) return 0;
+  await Future.delayed(const Duration(seconds: 1));
+  await repo.markAllSynced();
+  return dirtyCount;
+}
+
+// Force Offline Toggle 
+class ForceOfflineNotifier extends Notifier<bool> {
+  @override
+  bool build() => false;
+
+  void toggle() => state = !state;
+}
+
+final forceOfflineProvider =
+    NotifierProvider<ForceOfflineNotifier, bool>(ForceOfflineNotifier.new);
+
+```
+
+Buat file `lib/pages/posts_page.dart`
+
+```dart
+import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../data/sync.dart';
+
+class PostsPage extends ConsumerWidget {
+  const PostsPage({super.key});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final postsAsync = ref.watch(postsCacheProvider);
+    final isOffline = ref.watch(forceOfflineProvider);
+
+    return Scaffold(
+      appBar: AppBar(
+        title: const Text('Posts Cache'),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.refresh),
+            onPressed: () {
+              ref
+                  .read(postsCacheProvider.notifier)
+                  .refreshPostsInBackground();
+            },
+          ),
+        ],
+      ),
+      body: Column(
+        children: [
+          // Toggle simulasi offline
+          SwitchListTile(
+            title: const Text('Simulasi Offline'),
+            subtitle: Text(
+              isOffline ? 'Aktif — tidak fetch jaringan' : 'Nonaktif',
+            ),
+            value: isOffline,
+            onChanged: (_) =>
+                ref.read(forceOfflineProvider.notifier).toggle(),
+          ),
+          const Divider(height: 1),
+          Expanded(
+            child: postsAsync.when(
+              loading: () =>
+                  const Center(child: CircularProgressIndicator()),
+              error: (err, _) => Center(child: Text('Error: $err')),
+              data: (posts) {
+                if (posts.isEmpty) {
+                  return const Center(
+                    child: Text('Belum ada cache. Tekan refresh.'),
+                  );
+                }
+                return ListView.builder(
+                  itemCount: posts.length,
+                  itemBuilder: (context, i) {
+                    final post = posts[i];
+                    return ListTile(
+                      leading: CircleAvatar(
+                        child: Text(post.id.toString()),
+                      ),
+                      title: Text(
+                        post.title,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                      subtitle: Text(
+                        post.body,
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    );
+                  },
+                );
+              },
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+```
+
+Ganti isi `lib/main.dart`
+
+```dart
+import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'data/providers.dart';
+import 'pages/notes_page.dart';
+import 'pages/posts_page.dart';
+import 'pages/settings_page.dart';
+
+void main() => runApp(const ProviderScope(child: MyApp()));
+
+class MyApp extends ConsumerWidget {
+  const MyApp({super.key});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final darkMode = ref.watch(darkModeProvider);
+
+    return MaterialApp(
+      title: 'Week 5 - Offline Notes',
+      theme: ThemeData(
+        colorSchemeSeed: Colors.indigo,
+        brightness: Brightness.light,
+        useMaterial3: true,
+      ),
+      darkTheme: ThemeData(
+        colorSchemeSeed: Colors.indigo,
+        brightness: Brightness.dark,
+        useMaterial3: true,
+      ),
+      themeMode: darkMode.value == true ? ThemeMode.dark : ThemeMode.light,
+      home: const HomeShell(),
+    );
+  }
+}
+
+class HomeShell extends StatefulWidget {
+  const HomeShell({super.key});
+
+  @override
+  State<HomeShell> createState() => _HomeShellState();
+}
+
+class _HomeShellState extends State<HomeShell> {
+  int _index = 0;
+
+  static const _pages = [
+    NotesPage(),
+    PostsPage(),
+    SettingsPage(),
+  ];
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      body: _pages[_index],
+      bottomNavigationBar: NavigationBar(
+        selectedIndex: _index,
+        onDestinationSelected: (i) => setState(() => _index = i),
+        destinations: const [
+          NavigationDestination(
+            icon: Icon(Icons.note),
+            label: 'Catatan',
+          ),
+          NavigationDestination(
+            icon: Icon(Icons.cloud),
+            label: 'Posts Cache',
+          ),
+          NavigationDestination(
+            icon: Icon(Icons.settings),
+            label: 'Pengaturan',
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+```
+tambhkan dan modifikasi `lib/pages/notes_page.dart`
+
+```dart
+import '../data/sync.dart';
+
+                  if (count > 0)
+                    TextButton(
+                      onPressed: () async {
+                        final repo = ref.read(noteRepositoryProvider);
+                        final syncedCount = await syncNotes(repo);
+                        ref.invalidate(notesProvider);
+                        ref.invalidate(dirtyCountProvider);
+                        if (context.mounted && syncedCount > 0) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(
+                              content: Text(
+                                'Semua catatan berhasil disinkronkan',
+                              ),
+                            ),
+                          );
+                        }
+                      },
+                      child: const Text('Sync'),
+                    ),
+
+
+      floatingActionButton: FloatingActionButton(
+        onPressed: () async {
+          final title = await showDialog<String>(
+            context: context,
+            builder: (ctx) => const _AddNoteDialog(),
+          );
+
+          if (title != null && title.isNotEmpty && context.mounted) {
+            final repo = ref.read(noteRepositoryProvider);
+            await repo.addNote(title: title, body: 'deadline 1 minggu');
+            ref.invalidate(notesProvider);
+            ref.invalidate(dirtyCountProvider);
+          }
+        },
+        child: const Icon(Icons.add),
+      ),
+  
+  class _AddNoteDialog extends StatefulWidget {
+  const _AddNoteDialog();
+
+  @override
+  State<_AddNoteDialog> createState() => _AddNoteDialogState();
+}
+
+class _AddNoteDialogState extends State<_AddNoteDialog> {
+  final _controller = TextEditingController();
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      title: const Text('Catatan Baru'),
+      content: TextField(
+        controller: _controller,
+        autofocus: true,
+        decoration: const InputDecoration(hintText: 'Judul catatan'),
+        onSubmitted: (value) => Navigator.pop(context, value),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.pop(context),
+          child: const Text('Batal'),
+        ),
+        FilledButton(
+          onPressed: () => Navigator.pop(context, _controller.text),
+          child: const Text('Simpan'),
+        ),
+      ],
+    );
+  }
+}
+
+```
+
+### Verifikasi
+
+| Bukti Tampilan | Deskripsi Antarmuka |
+| :---: | :--- |
+| ![alt text](<screenshots/Screenshot 2026-10-10 225547.png>) | **`flutter analyze`** — No issues found! |
+| ![alt text](<screenshots/Screenshot 2026-10-10 225742.png>) | **`flutter test`** — +1: All tests passed! |
+
+### Hasil
+
+| Bukti Tampilan | Deskripsi Antarmuka |
+| :---: | :--- |
+| <img src="screenshots/WhatsApp Image 2026-10-10 at 23.03.48.jpeg" width="250"> | **Tambah Catatan** — dialog input judul catatan baru. |
+| <img src="screenshots/WhatsApp Image 2026-10-10 at 23.03.46.jpeg" width="250"> | **Sebelum Sync** — badge dirty menampilkan jumlah catatan belum tersinkron. |
+| <img src="screenshots/WhatsApp Image 2026-10-10 at 23.03.46 (1).jpeg" width="250"> | **Sesudah Sync** — badge kembali 0 (semua tersinkron), SnackBar muncul. |
+| <img src="screenshots/WhatsApp Image 2026-10-10 at 23.03.44.jpeg" width="250"> | **Posts Cache (Offline OFF)** — daftar post dari cache/jaringan. |
+| <img src="screenshots/WhatsApp Image 2026-10-10 at 23.03.45.jpeg" width="250"> | **Posts Cache (Offline ON)** — toggle "Simulasi Offline" aktif, posts tetap tampil dari cache (tidak fetch jaringan). |
+
+</blockquote>
+</details>
+
+<br>
+
+<details>
+<summary><h3>6. AI Challenge</h3></summary>
+<br>
+<blockquote>
+
+
+
+
+
 
 
 

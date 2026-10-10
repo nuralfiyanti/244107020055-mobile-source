@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'data/providers.dart';
 import 'pages/notes_page.dart';
+import 'pages/posts_page.dart';
 import 'pages/settings_page.dart';
 
 void main() => runApp(const ProviderScope(child: MyApp()));
@@ -43,6 +44,7 @@ class _HomeShellState extends State<HomeShell> {
 
   static const _pages = [
     NotesPage(),
+    PostsPage(),
     SettingsPage(),
   ];
 
@@ -57,6 +59,10 @@ class _HomeShellState extends State<HomeShell> {
           NavigationDestination(
             icon: Icon(Icons.note),
             label: 'Catatan',
+          ),
+          NavigationDestination(
+            icon: Icon(Icons.cloud),
+            label: 'Posts Cache',
           ),
           NavigationDestination(
             icon: Icon(Icons.settings),

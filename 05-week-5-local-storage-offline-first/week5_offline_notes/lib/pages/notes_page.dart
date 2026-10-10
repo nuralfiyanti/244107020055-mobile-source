@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../data/providers.dart';
+import '../data/sync.dart';
 
 class NotesPage extends ConsumerWidget {
   const NotesPage({super.key});
@@ -49,6 +50,25 @@ class NotesPage extends ConsumerWidget {
                           : 'Semua catatan sudah tersinkron',
                     ),
                   ),
+                  if (count > 0)
+                    TextButton(
+                      onPressed: () async {
+                        final repo = ref.read(noteRepositoryProvider);
+                        final syncedCount = await syncNotes(repo);
+                        ref.invalidate(notesProvider);
+                        ref.invalidate(dirtyCountProvider);
+                        if (context.mounted && syncedCount > 0) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(
+                              content: Text(
+                                'Semua catatan berhasil disinkronkan',
+                              ),
+                            ),
+                          );
+                        }
+                      },
+                      child: const Text('Sync'),
+                    ),
                 ],
               ),
             ),
@@ -116,16 +136,60 @@ class NotesPage extends ConsumerWidget {
       ),
       floatingActionButton: FloatingActionButton(
         onPressed: () async {
-          final repo = ref.read(noteRepositoryProvider);
-          await repo.addNote(
-            title: 'Catatan ${DateTime.now().second}',
-            body: 'deadline 1 minggu',
+          final title = await showDialog<String>(
+            context: context,
+            builder: (ctx) => const _AddNoteDialog(),
           );
-          ref.invalidate(notesProvider);
-          ref.invalidate(dirtyCountProvider);
+
+          if (title != null && title.isNotEmpty && context.mounted) {
+            final repo = ref.read(noteRepositoryProvider);
+            await repo.addNote(title: title, body: 'deadline 1 minggu');
+            ref.invalidate(notesProvider);
+            ref.invalidate(dirtyCountProvider);
+          }
         },
         child: const Icon(Icons.add),
       ),
+    );
+  }
+}
+
+class _AddNoteDialog extends StatefulWidget {
+  const _AddNoteDialog();
+
+  @override
+  State<_AddNoteDialog> createState() => _AddNoteDialogState();
+}
+
+class _AddNoteDialogState extends State<_AddNoteDialog> {
+  final _controller = TextEditingController();
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      title: const Text('Catatan Baru'),
+      content: TextField(
+        controller: _controller,
+        autofocus: true,
+        decoration: const InputDecoration(hintText: 'Judul catatan'),
+        onSubmitted: (value) => Navigator.pop(context, value),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.pop(context),
+          child: const Text('Batal'),
+        ),
+        FilledButton(
+          onPressed: () => Navigator.pop(context, _controller.text),
+          child: const Text('Simpan'),
+        ),
+      ],
     );
   }
 }
