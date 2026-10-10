@@ -1,9 +1,28 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 import 'data/providers.dart';
 import 'pages/notes_page.dart';
+import 'pages/note_detail_page.dart';
 import 'pages/posts_page.dart';
 import 'pages/settings_page.dart';
+
+final appRouter = GoRouter(
+  initialLocation: '/',
+  routes: [
+    GoRoute(
+      path: '/',
+      builder: (context, state) => const HomeShell(),
+    ),
+    GoRoute(
+      path: '/note/:id',
+      builder: (context, state) {
+        final id = int.tryParse(state.pathParameters['id'] ?? '') ?? 0;
+        return NoteDetailPage(id: id);
+      },
+    ),
+  ],
+);
 
 void main() => runApp(const ProviderScope(child: MyApp()));
 
@@ -14,7 +33,7 @@ class MyApp extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final darkMode = ref.watch(darkModeProvider);
 
-    return MaterialApp(
+    return MaterialApp.router(
       title: 'Week 5 - Offline Notes',
       theme: ThemeData(
         colorSchemeSeed: Colors.indigo,
@@ -27,7 +46,7 @@ class MyApp extends ConsumerWidget {
         useMaterial3: true,
       ),
       themeMode: darkMode.value == true ? ThemeMode.dark : ThemeMode.light,
-      home: const HomeShell(),
+      routerConfig: appRouter,
     );
   }
 }

@@ -28,12 +28,19 @@ class DarkModeNotifier extends AsyncNotifier<bool> {
 // NOTES
 final noteRepositoryProvider = Provider((ref) => NoteRepository());
 
-final notesProvider = FutureProvider<List<Note>>((ref) async {
-  final repo = ref.watch(noteRepositoryProvider);
-  return repo.fetchNotes();
-});
+final notesProvider = FutureProvider<List<Note>>(
+  (ref) async {
+    final repo = ref.watch(noteRepositoryProvider);
+    return repo.fetchNotes();
+  },
+  retry: (_, _) => null,   // ← TAMBAH INI (nonaktifkan retry Riverpod 3)
+);
 
 final dirtyCountProvider = FutureProvider<int>((ref) async {
   final repo = ref.watch(noteRepositoryProvider);
   return repo.countDirty();
+});
+
+final noteDetailProvider = FutureProvider.family<Note?, int>((ref, id) {
+  return ref.watch(noteRepositoryProvider).fetchNoteById(id);
 });

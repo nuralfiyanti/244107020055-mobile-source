@@ -1144,7 +1144,237 @@ Dokumentasi lengkap (prompt, output awal AI, tabel perbandingan, skema, perbaika
 </details>
 
 
+<details>
+<summary><h3>7. Refactoring, Testing, dan Error Umum</h3></summary>
+<br>
+<blockquote>
 
+## Refactoring Challenge
 
+### 1. Ekstrak `NoteTile` (`lib/widgets/note_tile.dart`)
 
+Baris catatan dijadikan widget terpisah, menampilkan badge "Belum tersinkron" bila `note.dirty == true`.
 
+```dart
+import 'package:flutter/material.dart';
+import '../data/local/note.dart';
+
+class NoteTile extends StatelessWidget {
+  const NoteTile({
+    required this.note,
+    required this.onDelete,
+    this.onTap,
+    super.key,
+  });
+
+  final Note note;
+  final VoidCallback onDelete;
+  final VoidCallback? onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return ListTile(
+      title: Text(note.title),
+      subtitle: note.body.isEmpty
+          ? null
+          : Text(note.body, maxLines: 1, overflow: TextOverflow.ellipsis),
+      onTap: onTap,
+      trailing: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          if (note.dirty)
+            const Chip(label: Text('Belum tersinkron')),
+          IconButton(icon: const Icon(Icons.delete), onPressed: onDelete),
+        ],
+      ),
+    );
+  }
+}
+```
+
+### 2. Pindahkan Logika Sync ke `lib/data/sync.dart`
+
+Fungsi `syncNotes`, `readCachedPosts`, `saveCachedPosts`, `PostsCacheNotifier`, dan `forceOfflineProvider` dipisahkan dari `NoteRepository` agar repository fokus ke CRUD.
+
+```dart
+Future<int> syncNotes(NoteRepository repo) async {
+  final dirtyCount = await repo.countDirty();
+  if (dirtyCount == 0) return 0;
+  await Future.delayed(const Duration(seconds: 1)); // simulasi upload
+  await repo.markAllSynced();
+  return dirtyCount;
+}
+```
+
+### 3. Halaman Detail Catatan dengan GoRouter
+
+Rute `/note/:id` dibangun dengan GoRouter, membaca data langsung dari repository lokal melalui `noteDetailProvider`.
+
+**`lib/pages/note_detail_page.dart`:**
+
+```dart
+class NoteDetailPage extends ConsumerWidget {
+  const NoteDetailPage({required this.id, super.key});
+  final int id;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final noteAsync = ref.watch(noteDetailProvider(id));
+    return Scaffold(
+      appBar: AppBar(title: Text('Catatan $id')),
+      body: noteAsync.when(
+        loading: () => const Center(child: CircularProgressIndicator()),
+        error: (e, _) => Center(child: Text('Gagal memuat: $e')),
+        data: (note) => note == null
+            ? const Center(child: Text('Catatan tidak ditemukan.'))
+            : Padding(
+                padding: const EdgeInsets.all(16),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(note.title,
+                        style: Theme.of(context).textTheme.headlineSmall),
+                    const SizedBox(height: 8),
+                    Text(note.body),
+                  ],
+                ),
+              ),
+      ),
+    );
+  }
+}
+```
+
+**Provider `noteDetailProvider` (di `providers.dart`):**
+
+```dart
+final noteDetailProvider = FutureProvider.family<Note?, int>((ref, id) {
+  return ref.watch(noteRepositoryProvider).fetchNoteById(id);
+});
+```
+
+### Hasil Visual
+
+| Bukti Tampilan | Deskripsi |
+| :---: | :--- |
+| <img src="screenshots/WhatsApp Image 2026-10-11 at 01.23.05.jpeg" width="250"> | **Daftar catatan** — `NoteTile` dengan title, body, dan tombol hapus. |
+| <img src="screenshots/WhatsApp Image 2026-10-11 at 01.23.06.jpeg" width="250"> | **Halaman detail** (`/note/:id`) — title + body lengkap, dibuka via GoRouter. |
+
+---
+
+## Testing: `test/note_test.dart`
+
+```dart
+import 'package:flutter_test/flutter_test.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:week5_offline_notes/data/local/note.dart';
+import 'package:week5_offline_notes/data/repositories/note_repository.dart';
+import 'package:week5_offline_notes/data/providers.dart';
+
+class FakeNoteRepository extends NoteRepository {
+  FakeNoteRepository({this.items = const [], this.throwError = false})
+      : super(openDb: () => throw UnimplementedError());
+
+  final List<Note> items;
+  final bool throwError;
+
+  @override
+  Future<List<Note>> fetchNotes() async {
+    if (throwError) throw Exception('db locked (simulasi)');
+    return items;
+  }
+
+  @override
+  Future<int> countDirty() =>
+      Future.value(items.where((n) => n.dirty).length);
+}
+
+void main() {
+  test('fromMap aman terhadap field yang hilang', () {
+    final note = Note.fromMap({'title': 'Belanja'});
+    expect(note.title, 'Belanja');
+    expect(note.body, '');
+    expect(note.dirty, isFalse);
+  });
+
+  test('flag dirty bertahan pada serialisasi', () {
+    final note = Note(
+      title: 'Tes',
+      updatedAt: DateTime(2026, 9, 18),
+      dirty: true,
+    );
+    final restored = Note.fromMap(note.toMap());
+    expect(restored.dirty, isTrue);
+  });
+
+  test('provider sukses dengan repository palsu', () async {
+    final container = ProviderContainer(
+      overrides: [
+        noteRepositoryProvider.overrideWithValue(
+          FakeNoteRepository(items: [
+            Note(title: 'Tes', updatedAt: DateTime.now()),
+          ]),
+        ),
+      ],
+    );
+    addTearDown(container.dispose);
+    final notes = await container.read(notesProvider.future);
+    expect(notes.length, 1);
+    expect(notes.first.title, 'Tes');
+  });
+
+  test('provider error dengan repository palsu', () async {
+    final container = ProviderContainer(
+      overrides: [
+        noteRepositoryProvider.overrideWithValue(
+          FakeNoteRepository(throwError: true),
+        ),
+      ],
+    );
+    addTearDown(container.dispose);
+    await expectLater(
+      container.read(notesProvider.future),
+      throwsA(isA<Exception>()),
+    );
+  });
+}
+```
+
+### Hasil
+
+```text
+flutter analyze → No issues found!
+flutter test    → +5: All tests passed!
+```
+
+---
+
+## Error Umum dan Solusinya
+
+| Gejala | Penyebab umum | Solusi |
+|---|---|---|
+| `MissingPluginException` untuk `shared_preferences`/`sqflite` | Hot restart setelah tambah plugin tanpa rebuild penuh | Hentikan aplikasi, jalankan ulang `flutter run` |
+| `DatabaseException: table notes already exists` | `onCreate` dijalankan dua kali / versi tidak naik setelah ubah skema | Naikkan `version` + implementasikan `onUpgrade`, atau uninstall aplikasi |
+| Badge dirty tidak pernah nol | `markAllSynced` tidak dipanggil setelah sync sukses | Panggil hanya setelah server menjawab sukses; uji dengan `countDirty` |
+| UI tidak refresh setelah tambah catatan | Lupa `ref.invalidate(notesProvider)` setelah mutasi | Invalidasi provider di repository caller, bukan di widget aksi |
+| Test menyentuh database sungguhan | Repository asli dipakai di test | Gunakan `FakeNoteRepository` via override |
+
+---
+
+## Checklist Verifikasi Mandiri
+
+- ✅ UI tidak memanggil SQLite/SharedPreferences langsung; semua lewat repository + provider.
+- ✅ Aplikasi penuh berfungsi dalam mode pesawat: baca, tambah, hapus catatan.
+- ✅ Badge dirty akurat sebelum/sesudah sync; cache posts tampil tanpa internet.
+- ✅ `flutter analyze` tanpa issue dan semua test lulus.
+- ✅ Hasil AI diverifikasi dan didokumentasikan pada folder `docs/`.
+
+<br>
+
+</blockquote>
+</details>
+
+<details>
+<summary><h3>8. Tugas, refleksi, dan referensi</h3></summary>
+<br>
+<blockquote>

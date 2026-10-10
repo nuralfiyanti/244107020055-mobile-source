@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 import '../data/providers.dart';
 import '../data/sync.dart';
+import '../widgets/note_tile.dart';
 
 class NotesPage extends ConsumerWidget {
   const NotesPage({super.key});
@@ -90,41 +92,15 @@ class NotesPage extends ConsumerWidget {
                     return Card(
                       margin: const EdgeInsets.symmetric(
                           horizontal: 12, vertical: 6),
-                      child: ListTile(
-                        leading: CircleAvatar(
-                          child: Text(note.id.toString()),
-                        ),
-                        title: Text(note.title),
-                        subtitle: Row(
-                          children: [
-                            Icon(
-                              note.dirty
-                                  ? Icons.cloud_off
-                                  : Icons.cloud_done,
-                              size: 14,
-                              color: note.dirty
-                                  ? Colors.orange
-                                  : Colors.green,
-                            ),
-                            const SizedBox(width: 4),
-                            Text(
-                              note.dirty
-                                  ? 'Belum tersinkron'
-                                  : 'Sudah tersinkron',
-                              style: const TextStyle(fontSize: 12),
-                            ),
-                          ],
-                        ),
-                        trailing: IconButton(
-                          icon: const Icon(Icons.delete_outline),
-                          onPressed: () async {
-                            final repo =
-                                ref.read(noteRepositoryProvider);
-                            await repo.deleteNote(note.id!);
-                            ref.invalidate(notesProvider);
-                            ref.invalidate(dirtyCountProvider);
-                          },
-                        ),
+                      child: NoteTile(
+                        note: note,
+                        onTap: () => context.push('/note/${note.id}'),
+                        onDelete: () async {
+                          final repo = ref.read(noteRepositoryProvider);
+                          await repo.deleteNote(note.id!);
+                          ref.invalidate(notesProvider);
+                          ref.invalidate(dirtyCountProvider);
+                        },
                       ),
                     );
                   },
