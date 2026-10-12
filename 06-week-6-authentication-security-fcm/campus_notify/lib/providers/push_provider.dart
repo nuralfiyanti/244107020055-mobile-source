@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:firebase_messaging/firebase_messaging.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../data/device_repository.dart';
@@ -40,6 +41,7 @@ class PushState {
 class PushController extends Notifier<PushState> {
   StreamSubscription<String>? _tokenSubscription;
   final DeviceRepository _deviceRepository = DeviceRepository();
+  String? _fullToken;
 
   @override
   PushState build() {
@@ -57,10 +59,6 @@ class PushController extends Notifier<PushState> {
     );
     _addLog(permission ? 'Izin notifikasi diberikan' : 'Izin notifikasi ditolak');
 
-    await initLocalNotifications();
-    FirebaseMessaging.onBackgroundMessage(firebaseMessagingBackgroundHandler);
-    FirebaseMessaging.onMessage.listen(showForegroundNotification);
-    _addLog('Listener foreground dan background aktif');
     _tokenSubscription = await initFcmToken(
       onToken: _handleToken,
       onTokenRefresh: (token) async {
@@ -81,8 +79,21 @@ class PushController extends Notifier<PushState> {
     if (token != null) await _handleToken(token);
   }
 
+  Future<void> unsubscribeFromCampusTopic() async {
+    await FirebaseMessaging.instance.unsubscribeFromTopic('pengumuman-kampus');
+    _addLog('Berhenti dari topik: pengumuman-kampus');
+  }
+
+  Future<void> copyToken() async {
+    final token = _fullToken;
+    if (token == null) return;
+    await Clipboard.setData(ClipboardData(text: token));
+    _addLog('Token disalin ke clipboard');
+  }
+
   Future<void> _handleToken(String token) async {
     await _deviceRepository.registerToken(token);
+    _fullToken = token;
     state = state.copyWith(maskedToken: maskToken(token));
     _addLog('Token diperbarui: ${maskToken(token)}');
   }

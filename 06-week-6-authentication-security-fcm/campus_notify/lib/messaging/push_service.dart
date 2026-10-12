@@ -2,7 +2,9 @@ import 'dart:async';
 
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
+import 'package:flutter/foundation.dart';   
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
+
 
 typedef TokenHandler = Future<void> Function(String token);
 typedef RouteHandler = void Function(String route);
@@ -28,11 +30,15 @@ Future<bool> requestNotificationPermission() async {
       settings.authorizationStatus == AuthorizationStatus.provisional;
 }
 
-Future<void> initLocalNotifications() async {
+Future<void> initLocalNotifications({RouteHandler? onRoute}) async {
   const android = AndroidInitializationSettings('@mipmap/ic_launcher');
   const ios = DarwinInitializationSettings();
   await _localNotifications.initialize(
     settings: const InitializationSettings(android: android, iOS: ios),
+    onDidReceiveNotificationResponse: (response) {
+      final route = response.payload;
+      if (route != null && route.startsWith('/')) onRoute?.call(route);
+    },
   );
   const channel = AndroidNotificationChannel(
     'campus_notify_channel',
@@ -65,8 +71,31 @@ Future<void> showForegroundNotification(RemoteMessage message) async {
     title: notification.title,
     body: notification.body,
     notificationDetails: details,
-    payload: message.data['route'] as String?,
+    payload: _routeFromMessage(message),
   );
+}
+
+String? _routeFromMessage(RemoteMessage message) {
+  debugPrint('[FCM] data=${message.data}');
+  final raw = message.data['route'];
+  if (raw is! String || raw.isEmpty) return null;
+  return raw.startsWith('/') ? raw : '/$raw';
+}
+
+Future<String?> initializeMessageHandlers({RouteHandler? onRoute}) async {
+  FirebaseMessaging.onBackgroundMessage(firebaseMessagingBackgroundHandler);
+  await initLocalNotifications(onRoute: onRoute);
+  await requestNotificationPermission();
+  FirebaseMessaging.onMessage.listen(showForegroundNotification);
+  FirebaseMessaging.onMessageOpenedApp.listen((message) {
+    final route = _routeFromMessage(message);
+    if (route != null) onRoute?.call(route);
+  });
+
+  final initialMessage = await FirebaseMessaging.instance.getInitialMessage();
+  final initialRoute =
+      initialMessage == null ? null : _routeFromMessage(initialMessage);
+  return initialRoute;
 }
 
 Future<StreamSubscription<String>> initFcmToken({
@@ -208,8 +237,4 @@ class PushService {
     if (route != null) onRoute?.call(route);
   }
 
-  String? _routeFromMessage(RemoteMessage message) {
-    final route = message.data['route'];
-    return route is String && route.startsWith('/') ? route : null;
-  }
 }

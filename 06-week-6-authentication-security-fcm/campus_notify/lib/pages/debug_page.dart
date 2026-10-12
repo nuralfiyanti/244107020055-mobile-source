@@ -18,12 +18,35 @@ class DebugPage extends ConsumerWidget {
         children: [
           Text('Izin notifikasi: ${state.permission}'),
           const SizedBox(height: 16),
-          Text('Token perangkat: ${state.maskedToken ?? 'Belum tersedia'}'),
+          Row(
+            children: [
+              Expanded(
+                child: Text(
+                  'Token perangkat: ${state.maskedToken ?? 'Belum tersedia'}',
+                ),
+              ),
+              IconButton(
+                onPressed: state.maskedToken == null
+                    ? null
+                    : controller.copyToken,
+                icon: const Icon(Icons.copy),
+                tooltip: 'Salin token untuk Firebase Console',
+              ),
+            ],
+          ),
           const SizedBox(height: 24),
           FilledButton.icon(
             onPressed: state.started ? controller.resetToken : controller.start,
             icon: const Icon(Icons.refresh),
             label: Text(state.started ? 'Reset token' : 'Mulai FCM'),
+          ),
+          const SizedBox(height: 12),
+          OutlinedButton.icon(
+            onPressed: state.started
+                ? controller.unsubscribeFromCampusTopic
+                : null,
+            icon: const Icon(Icons.notifications_off_outlined),
+            label: const Text('Berhenti dari topik kampus'),
           ),
           const SizedBox(height: 24),
           const Text(

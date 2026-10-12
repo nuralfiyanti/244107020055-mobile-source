@@ -6,26 +6,42 @@ import 'pages/announcement_page.dart';
 import 'pages/debug_page.dart';
 import 'pages/home_page.dart';
 import 'pages/login_page.dart';
+import 'messaging/push_service.dart';
 import 'providers/auth_provider.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await Firebase.initializeApp();
+
   final container = ProviderContainer();
-  // Pulihkan sesi dari secure storage sebelum UI tampil, supaya tidak
-  // ada kedip halaman login saat pengguna sebenarnya sudah masuk.
   await container.read(authStateProvider.future).catchError((_) => false);
+
+  final router = buildRouter(container);
 
   runApp(
     UncontrolledProviderScope(
       container: container,
-      child: MyApp(router: buildRouter(container)),
+      child: MyApp(router: router),
     ),
   );
+
+  WidgetsBinding.instance.addPostFrameCallback((_) async {
+    // 1. Setup handler (background, local notif, permission, foreground, terminated)
+    final initialRoute = await initializeMessageHandlers(
+      onRoute: (route) => router.go(route),
+    );
+
+    await initFcmToken(
+      onToken: (token) async {
+        debugPrint('[FCM] Token: ${maskToken(token)}');
+      },
+    );
+
+    if (initialRoute != null) router.go(initialRoute);
+  });
 }
 
 GoRouter buildRouter(ProviderContainer container) {
-  // Memicu ulang redirect setiap status login berubah.
   final refresh = ValueNotifier<int>(0);
   container.listen<AsyncValue<bool>>(
     authStateProvider,
@@ -34,6 +50,7 @@ GoRouter buildRouter(ProviderContainer container) {
 
   return GoRouter(
     refreshListenable: refresh,
+    initialLocation: '/login',
     redirect: (context, state) {
       final loggedIn = container.read(authStateProvider).value ?? false;
       final goingLogin = state.matchedLocation == '/login';
@@ -55,9 +72,7 @@ GoRouter buildRouter(ProviderContainer container) {
 
 class MyApp extends StatelessWidget {
   const MyApp({super.key, required this.router});
-
   final GoRouter router;
-
 
   @override
   Widget build(BuildContext context) {
