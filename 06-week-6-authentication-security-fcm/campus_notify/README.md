@@ -95,13 +95,9 @@ Prinsip praktis Campus Notification App adalah mengirim gabungan `notification +
 | Background | Aplikasi diminimalkan | Banner sistem otomatis dan `onMessageOpenedApp` saat banner diklik |
 | Terminated | Aplikasi tidak aktif | `getInitialMessage()` saat aplikasi dibuka dari notifikasi |
 
-### Prinsip Keamanan Dasar
-
-Jangan menyimpan token atau secret di `SharedPreferences` atau hardcode di Dart. Jangan mencetak token ke log. Kirim refresh token melalui HTTPS dan simpan di `flutter_secure_storage`, yang menggunakan Keystore pada Android atau Keychain pada iOS.
-
 </blockquote>
 </details>
-<br>
+
 
 <details>
 <summary><h3>3. Praktikum 1: Login, Secure Storage, dan Token Refresh</h3></summary>
@@ -376,8 +372,7 @@ Skenario manual yang diuji pada perangkat Android:
 | ![Form login](<screenshots/WhatsApp Image 2026-10-12 at 13.55.01.jpeg>) | Halaman login sebelum pengguna memasukkan data. |
 | ![Halaman utama](<screenshots/WhatsApp Image 2026-10-12 at 15.31.13.jpeg>) | Login valid menampilkan halaman utama Campus Notify dan status sesi aktif. |
 | ![Halaman pengumuman](<screenshots/WhatsApp Image 2026-10-12 at 15.34.32.jpeg>) | Menekan item pengumuman membuka halaman detail **Pengumuman 1**. |
-| ![Logout kembali ke login](![alt text](<screenshots/WhatsApp Image 2026-10-12 at 15.31.13 - Copy.jpeg>)) | Setelah menekan ikon panah kanan atas, logout menghapus sesi dan kembali ke halaman login. |
-
+| ![Logout kembali ke login](<screenshots/WhatsApp Image 2026-10-12 at 15.31.13 - Copy.jpeg>) | Setelah menekan ikon panah kanan atas, logout menghapus sesi dan kembali ke halaman login. |
 
 ---
 
@@ -403,34 +398,148 @@ No issues found!
 flutter test
 00:18 +9: All tests passed!
 ```
----
-
-## Checklist Praktikum 1
-
-| # | Ketentuan | Status | Implementasi |
-|---|---|---|---|
-| 1 | Token tidak disimpan di SharedPreferences | Selesai | `flutter_secure_storage` |
-| 2 | Access dan refresh token dipisahkan | Selesai | `TokenStore` |
-| 3 | Login memiliki state loading dan error | Selesai | `AuthNotifier` + `LoginPage` |
-| 4 | Sesi dipulihkan saat aplikasi dibuka | Selesai | `authStateProvider` di `main.dart` |
-| 5 | Route terlindungi dari pengguna yang belum login | Selesai | Redirect GoRouter |
-| 6 | Access token dikirim sebagai Bearer token | Selesai | Interceptor Dio |
-| 7 | HTTP 401 memicu refresh otomatis | Selesai | `api_client.dart` |
-| 8 | Refresh hanya dilakukan satu kali | Selesai | Flag `retried` + test |
-| 9 | Refresh gagal menghapus sesi | Selesai | `TokenStore.clear()` |
-| 10 | Kode dianalisis dan diuji | Selesai | Analyze tanpa issue, 9 test lulus |
 
 ---
-
-## Catatan Keamanan
-
-- Jangan menyimpan access token atau refresh token di `SharedPreferences`.
-- Jangan menulis token secara hardcode di source code aplikasi produksi.
-- Jangan mencetak token ke log.
-- Refresh token hanya boleh dikirim melalui koneksi HTTPS.
-- Token refresh yang gagal harus mengakhiri sesi, seperti yang dilakukan interceptor.
-- Mock token pada praktikum ini hanya untuk pembelajaran dan tidak boleh digunakan sebagai mekanisme autentikasi produksi.
 
 </blockquote>
 </details>
+
+<br>
+
+<details>
+<summary><h3>4. Praktikum 2: FCM, permission, dan token lifecycle</h3></summary>
+<br>
+<blockquote>
+
+## Tujuan Praktikum
+
+Praktikum 2 menambahkan Firebase Cloud Messaging (FCM) untuk menerima pengumuman kampus melalui permission notifikasi, token perangkat, notifikasi foreground, background handler, dan deeplink `data.route`.
+
+## Perintah Terminal dan Waktu Menjalankannya
+
+Jalankan perintah dari folder project, bukan dari root repository:
+
+```powershell
+Set-Location '06-week-6-authentication-security-fcm/campus_notify'
+```
+
+Urutan validasi laporan:
+
+```powershell
+Set-Location '06-week-6-authentication-security-fcm/campus_notify'
+flutter pub get
+flutter analyze
+flutter test
+flutter run
+```
+
+Jalankan `flutter pub get` setiap kali dependency berubah. Jalankan `flutter analyze` dan `flutter test` setelah setiap tahap kode selesai. Jalankan `flutter run` ketika mengambil bukti tampilan di HP.
+
+## 1. Daftarkan Aplikasi ke Firebase
+
+1. Buat project di [Firebase Console](https://console.firebase.google.com/).
+2. Tambahkan aplikasi Android dengan package name sesuai `applicationId`.
+3. Unduh `google-services.json` ke `android/app/`.
+4. Untuk iOS, tambahkan `GoogleService-Info.plist` ke Runner.
+5. Jalankan `flutter pub get` setelah dependency siap.
+
+---
+
+## 2. Permission, Token, dan Notification Service
+
+Implementasi berada di `lib/messaging/push_service.dart`, `lib/providers/push_provider.dart`, dan `lib/pages/debug_page.dart`. Service ini memanggil `requestPermission()`, mengambil token dengan `getToken()`, memantau `onTokenRefresh`, berlangganan topik `pengumuman-kampus`, menampilkan pesan foreground sebagai local notification, memproses `data.route`, dan menangani pesan background atau terminated.
+
+Inisialisasi service dilakukan di `lib/main.dart` setelah sesi login dipulihkan. Callback `onToken` dapat digunakan untuk mengirim token ke backend kampus melalui HTTPS. Token tidak dicetak ke log.
+
+---
+
+## 3. Token Lifecycle
+
+```text
+FirebaseMessaging.getToken() -> kirim token ke backend kampus
+onTokenRefresh -> perbarui token di backend
+reinstall / hapus data / rotasi keamanan -> token baru
+```
+
+Contoh pengiriman token ke backend, dengan URL disesuaikan dengan API kampus:
+
+```dart
+await dio.post('/devices', data: {
+	'fcm_token': token,
+	'platform': 'android',
+});
+```
+
+Jangan menampilkan token penuh dalam screenshot. Tampilkan bentuk tersamarkan seperti `abc123...xyz789`.
+
+### Uji Reinstall/Clear Data Membuktikan Token Berubah
+
+Pengujian dilakukan dengan membuka halaman **Debug FCM**, mencatat token yang sudah tersamarkan, menghapus data aplikasi atau melakukan reinstall, lalu membuka aplikasi kembali dan mencatat token baru.
+
+| ![Token sebelum clear data](<screenshots/WhatsApp Image 2026-10-12 at 20.10.55.jpeg>) | Token tersamarkan sebelum data aplikasi dihapus. |
+| ![Token setelah clear data](<screenshots/WhatsApp Image 2026-10-12 at 20.45.52 (1).jpeg>) | Token tersamarkan setelah data aplikasi dihapus dan berubah. |
+
+---
+
+## 4. Uji Kirim dari Firebase Console
+
+1. Buka Firebase Console > Messaging dan buat campaign notifikasi percobaan.
+2. Masukkan `title` dan `body`, lalu pilih aplikasi Android.
+3. **Uji foreground:** biarkan halaman Campus Notify tetap terbuka, kirim pesan, lalu pastikan popup local notification muncul di HP.
+4. **Uji background:** tekan tombol Home tanpa menutup aplikasi dari recent apps, kirim pesan, lalu pastikan banner muncul di panel notifikasi Android.
+5. Ketuk banner untuk menguji pembukaan aplikasi dan deeplink.
+
+Popup foreground berasal dari `showForegroundNotification()` dan `flutter_local_notifications`. Banner background berasal dari Firebase Messaging Android. Keduanya harus dibuktikan dengan screenshot terpisah.
+
+----
+
+## Bukti Tampilan
+
+| Nama file bukti | Keterangan |
+|---|---|
+| ![Project Firebase](<screenshots/Screenshot 2026-10-12 163918.png>) | Project Firebase dan aplikasi Android sudah terdaftar. |
+| ![Izin notifikasi](<screenshots/WhatsApp Image 2026-10-12 at 20.04.57.jpeg>) | Dialog izin notifikasi Android 13+ atau iOS. |
+| ![Token sebelum clear data](<screenshots/WhatsApp Image 2026-10-12 at 20.10.55.jpeg>) | Token perangkat tersamarkan sebelum data aplikasi dihapus. |
+| ![Token setelah clear data](<screenshots/WhatsApp Image 2026-10-12 at 20.45.52 (1).jpeg>) | Token perangkat tersamarkan setelah data aplikasi dihapus dan berubah. |
+| ![Clear data aplikasi](<screenshots/WhatsApp Image 2026-10-12 at 20.45.52.jpeg>) | Halaman pengaturan Android untuk menghapus data aplikasi. |
+| ![Campaign Firebase](<screenshots/Screenshot 2026-10-12 192529.png>) | Form campaign Firebase Console berisi title dan body. |
+| ![Popup foreground](<screenshots/WhatsApp Image 2026-10-12 at 20.10.55 (1).jpeg>) | Popup local notification tampil saat aplikasi terbuka. |
+| ![Deeplink pengumuman](<screenshots/WhatsApp Image 2026-10-12 at 20.10.55 (2).jpeg>) | Notifikasi membuka halaman pengumuman sesuai `data.route`. |
+
+---
+
+### 7. Pengujian Otomatis
+
+File: `test/auth_test.dart`
+
+Test mencakup penyimpanan token, empat skenario refresh 401, kondisi awal belum login, login berhasil, login gagal, dan logout.
+
+Perintah verifikasi:
+
+```bash
+flutter analyze
+flutter test
+```
+
+Hasil verifikasi:
+
+```text
+flutter analyze
+No issues found!
+
+flutter test
+00:18 +9: All tests passed!
+```
+
+---
+
+</blockquote>
+</details>
+
+<br>
+
+<details>
+<summary><h3>5. Praktikum 3: Payload, tiga app state, klik dan topik</h3></summary>
+<br>
+<blockquote>
 
