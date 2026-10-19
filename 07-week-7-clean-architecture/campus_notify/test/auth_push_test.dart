@@ -1,6 +1,6 @@
 import 'package:campus_notify/data/api_errors.dart';
 import 'package:campus_notify/data/token_store.dart';
-import 'package:campus_notify/providers/auth_provider.dart';
+import 'package:campus_notify/features/auth/presentation/providers/auth_providers.dart';
 import 'package:campus_notify/routes.dart';
 import 'package:dio/dio.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';

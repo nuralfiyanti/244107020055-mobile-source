@@ -1,3 +1,4 @@
+import '../../../../core/failures.dart';
 import '../entities/user.dart';
 import '../repositories/auth_repository.dart';
 
@@ -6,7 +7,7 @@ class LoginUseCase {
   LoginUseCase(this._repository);
   final AuthRepository _repository;
 
-  Future<User> call({
+  Future<(User?, Failure?)> call({
     required String email,
     required String password,
   }) {

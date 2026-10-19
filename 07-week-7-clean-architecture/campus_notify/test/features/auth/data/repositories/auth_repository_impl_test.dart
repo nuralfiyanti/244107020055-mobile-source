@@ -1,3 +1,4 @@
+import 'package:campus_notify/core/failures.dart';
 import 'package:campus_notify/features/auth/data/models/user_model.dart';
 import 'package:campus_notify/features/auth/data/repositories/auth_repository_impl.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -11,34 +12,37 @@ void main() {
     });
 
     test('login berhasil mengembalikan UserModel untuk email dan kata sandi valid', () async {
-      final user = await repository.login(
+      final (user, failure) = await repository.login(
         email: 'mahasiswa@kampus.ac.id',
         password: 'password123',
       );
 
+      expect(failure, isNull);
       expect(user, isA<UserModel>());
-      expect(user.accessToken, 'mock-access-for-mahasiswa@kampus.ac.id');
+      expect(user!.accessToken, 'mock-access-for-mahasiswa@kampus.ac.id');
       expect(user.refreshToken, 'mock-refresh-for-mahasiswa@kampus.ac.id');
     });
 
-    test('login melempar Exception jika email tidak valid', () async {
-      expect(
-        () => repository.login(
-          email: 'invalid-email',
-          password: 'password123',
-        ),
-        throwsA(isA<Exception>()),
+    test('login mengembalikan AuthFailure jika email tidak valid', () async {
+      final (user, failure) = await repository.login(
+        email: 'invalid-email',
+        password: 'password123',
       );
+
+      expect(user, isNull);
+      expect(failure, isA<AuthFailure>());
+      expect(failure?.message, 'Email atau kata sandi tidak valid');
     });
 
-    test('login melempar Exception jika kata sandi kurang dari 6 karakter', () async {
-      expect(
-        () => repository.login(
-          email: 'mahasiswa@kampus.ac.id',
-          password: '123',
-        ),
-        throwsA(isA<Exception>()),
+    test('login mengembalikan AuthFailure jika kata sandi kurang dari 6 karakter', () async {
+      final (user, failure) = await repository.login(
+        email: 'mahasiswa@kampus.ac.id',
+        password: '123',
       );
+
+      expect(user, isNull);
+      expect(failure, isA<AuthFailure>());
+      expect(failure?.message, 'Email atau kata sandi tidak valid');
     });
 
     test('refresh mengembalikan token baru jika refresh token valid', () async {

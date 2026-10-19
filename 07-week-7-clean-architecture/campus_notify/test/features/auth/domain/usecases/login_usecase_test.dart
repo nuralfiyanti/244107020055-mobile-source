@@ -1,3 +1,4 @@
+import 'package:campus_notify/core/failures.dart';
 import 'package:campus_notify/features/auth/domain/entities/user.dart';
 import 'package:campus_notify/features/auth/domain/repositories/auth_repository.dart';
 import 'package:campus_notify/features/auth/domain/usecases/login.dart';
@@ -8,15 +9,18 @@ class FakeAuthRepository implements AuthRepository {
   String? lastPassword;
 
   @override
-  Future<User> login({
+  Future<(User?, Failure?)> login({
     required String email,
     required String password,
   }) async {
     lastEmail = email;
     lastPassword = password;
-    return const User(
-      accessToken: 'fake-access',
-      refreshToken: 'fake-refresh',
+    return (
+      const User(
+        accessToken: 'fake-access',
+        refreshToken: 'fake-refresh',
+      ),
+      null,
     );
   }
 
@@ -30,13 +34,14 @@ void main() {
       final fakeRepo = FakeAuthRepository();
       final useCase = LoginUseCase(fakeRepo);
 
-      final result = await useCase(
+      final (user, failure) = await useCase(
         email: 'user@kampus.ac.id',
         password: 'password123',
       );
 
-      expect(result.accessToken, 'fake-access');
-      expect(result.refreshToken, 'fake-refresh');
+      expect(failure, isNull);
+      expect(user?.accessToken, 'fake-access');
+      expect(user?.refreshToken, 'fake-refresh');
       expect(fakeRepo.lastEmail, 'user@kampus.ac.id');
       expect(fakeRepo.lastPassword, 'password123');
     });

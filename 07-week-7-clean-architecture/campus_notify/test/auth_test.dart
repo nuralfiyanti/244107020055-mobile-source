@@ -1,9 +1,9 @@
 import 'dart:typed_data';
 
 import 'package:campus_notify/data/api_client.dart';
-import 'package:campus_notify/data/auth_repository.dart';
 import 'package:campus_notify/data/token_store.dart';
-import 'package:campus_notify/providers/auth_provider.dart';
+import 'package:campus_notify/features/auth/data/repositories/auth_repository_impl.dart';
+import 'package:campus_notify/features/auth/presentation/providers/auth_providers.dart';
 import 'package:dio/dio.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -41,7 +41,7 @@ class _FakeAdapter implements HttpClientAdapter {
   int Function(RequestOptions) respond,
 ) {
   final store = TokenStore(storage: FakeSecureStorage());
-  final dio = buildApiClient(store, AuthRepository());
+  final dio = buildApiClient(store, AuthRepositoryImpl());
   final adapter = _FakeAdapter(respond);
   dio.httpClientAdapter = adapter;
   return (dio: dio, store: store, adapter: adapter);

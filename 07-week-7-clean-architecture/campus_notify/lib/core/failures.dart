@@ -1,5 +1,3 @@
-/// Base class untuk semua failure di aplikasi.
-/// Murni Dart — tidak boleh import Flutter/Dio.
 sealed class Failure {
   const Failure(this.message);
   final String message;
@@ -19,4 +17,8 @@ class ServerFailure extends Failure {
 
 class CacheFailure extends Failure {
   const CacheFailure(super.message);
+}
+
+class ParseFailure extends Failure {
+  const ParseFailure(super.message);
 }

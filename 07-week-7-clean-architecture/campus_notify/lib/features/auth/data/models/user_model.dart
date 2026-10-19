@@ -1,6 +1,5 @@
 import '../../domain/entities/user.dart';
 
-/// Model — representasi data + mapping ke entity.
 class UserModel extends User {
   const UserModel({
     required super.accessToken,
