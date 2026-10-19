@@ -568,23 +568,23 @@ Refactor ke Clean Architecture **tidak mengubah perilaku aplikasi**. Screenshot 
 
 | Before (Week 6) | After (Week 7) |
 | :---: | :---: |
-| <img src="![alt text](<screenshots/week06/WhatsApp Image 2026-10-12 at 13.55.00 (1).jpeg>)" width="250"> | <img src="![alt text](<screenshots/week07/WhatsApp Image 2026-10-19 at 23.26.35.jpeg>)" width="250"> |
+| <img src="screenshots/week06/WhatsApp Image 2026-10-12 at 13.55.00 (1).jpeg" width="250"> | <img src="screenshots/week07/WhatsApp Image 2026-10-19 at 23.26.35.jpeg" width="250"> |
 | Form login — email + password | Form login — email + password (identik) |
 
 ### B. Home Page
 
 | Before (Week 6) | After (Week 7) |
 | :---: | :---: |
-| <img src="![alt text](<screenshots/week06/WhatsApp Image 2026-10-12 at 20.10.55 (2).jpeg>)" width="250"> | <img src="![alt text](screenshots/week07/dff6a0a4-7af7-47db-b8c4-b952dda282fc.jpeg)" width="250"> |
+| <img src="screenshots/week06/WhatsApp Image 2026-10-12 at 20.10.55 (2).jpeg" width="250"> | <img src="screenshots/week07/dff6a0a4-7af7-47db-b8c4-b952dda282fc.jpeg" width="250"> |
 | Sesi aktif + daftar pengumuman | Sesi aktif + daftar pengumuman (identik) |
 
 ### C. Struktur Folder & Verifikasi Arsitektur
 
 | Bukti | Deskripsi |
 | :---: | :--- |
-| <img src="![alt text](<screenshots/week07/Screenshot 2026-10-19 233909.png>)" width="500"> | Struktur folder `lib/features/auth/` — Clean Architecture feature-first |
-| <img src="![alt text](<screenshots/week07/Screenshot 2026-10-19 222606.png>) " width="500"> | `flutter analyze` — No issues found! |
-| <img src="![alt text](<screenshots/week07/Screenshot 2026-10-19 222612.png>)" width="500"> | `flutter test` — +28: All tests passed! | 
+| <img src="screenshots/week07/Screenshot 2026-10-19 233909.png" width="500"> | Struktur folder `lib/features/auth/` — Clean Architecture feature-first |
+| <img src="screenshots/week07/Screenshot 2026-10-19 222606.png" width="500"> | `flutter analyze` — No issues found! |
+| <img src="screenshots/week07/Screenshot 2026-10-19 222612.png" width="500"> | `flutter test` — +28: All tests passed! |
 
 ## 2. Refleksi Kritis Mahasiswa
 
