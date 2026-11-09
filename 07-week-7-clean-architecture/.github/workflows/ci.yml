@@ -5,22 +5,19 @@ on: [pull_request]
 jobs:
   verify:
     runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: campus_notify # <-- Hanya perlu ini
     steps:
       - uses: actions/checkout@v4
       - uses: subosito/flutter-action@v2
         with:
-          flutter-version: "3.x"
-          channel: "stable"
+          channel: 'stable'
       - name: Install dependencies
         run: flutter pub get
-        working-directory: 07-week-7-clean-architecture/campus_notify
       - name: Check formatting
         run: dart format lib/ test/ --set-exit-if-changed
-        working-directory: 07-week-7-clean-architecture/campus_notify
       - name: Analyze code
         run: flutter analyze
-        working-directory: 07-week-7-clean-architecture/campus_notify
       - name: Run tests
         run: flutter test
-        working-directory: 07-week-7-clean-architecture/campus_notify
-
