@@ -54,11 +54,12 @@ class DebugPage extends ConsumerWidget {
             style: TextStyle(fontWeight: FontWeight.bold),
           ),
           const SizedBox(height: 8),
-          for (final log in state.logs) ListTile(
-            dense: true,
-            leading: const Icon(Icons.info_outline),
-            title: Text(log),
-          ),
+          for (final log in state.logs)
+            ListTile(
+              dense: true,
+              leading: const Icon(Icons.info_outline),
+              title: Text(log),
+            ),
         ],
       ),
     );

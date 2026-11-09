@@ -68,8 +68,10 @@ void main() {
         final auth = o.headers['Authorization'] as String?;
         return (auth?.contains('renewed') ?? false) ? 200 : 401;
       });
-      await t.store
-          .save(access: 'kedaluwarsa', refresh: 'mock-refresh-for-a@b.c');
+      await t.store.save(
+        access: 'kedaluwarsa',
+        refresh: 'mock-refresh-for-a@b.c',
+      );
 
       final response = await t.dio.get<dynamic>('/ping');
 
@@ -91,18 +93,22 @@ void main() {
       expect(await t.store.readRefresh(), isNull);
     });
 
-    test('tetap 401 setelah refresh -> berhenti, tidak berulang terus',
-        () async {
-      final t = _setup((_) => 401);
-      await t.store
-          .save(access: 'kedaluwarsa', refresh: 'mock-refresh-for-a@b.c');
+    test(
+      'tetap 401 setelah refresh -> berhenti, tidak berulang terus',
+      () async {
+        final t = _setup((_) => 401);
+        await t.store.save(
+          access: 'kedaluwarsa',
+          refresh: 'mock-refresh-for-a@b.c',
+        );
 
-      await expectLater(
-        t.dio.get<dynamic>('/ping'),
-        throwsA(isA<DioException>()),
-      );
-      expect(t.adapter.calls, 2); // hanya SATU kali percobaan ulang
-    });
+        await expectLater(
+          t.dio.get<dynamic>('/ping'),
+          throwsA(isA<DioException>()),
+        );
+        expect(t.adapter.calls, 2); // hanya SATU kali percobaan ulang
+      },
+    );
 
     test('tanpa refresh token -> error diteruskan', () async {
       final t = _setup((_) => 401);
@@ -145,12 +151,10 @@ void main() {
       expect(storage.data['refresh_token'], 'mock-refresh-for-a@kampus.ac.id');
     });
 
-        test('login gagal -> error dan tidak ada token tersimpan', () async {
+    test('login gagal -> error dan tidak ada token tersimpan', () async {
       await container.read(authStateProvider.future);
 
-      await container
-          .read(authStateProvider.notifier)
-          .login('tanpa-at', '123');
+      await container.read(authStateProvider.notifier).login('tanpa-at', '123');
 
       expect(container.read(authStateProvider).hasError, true);
       expect(storage.data, isEmpty);

@@ -36,10 +36,7 @@ void main() {
     });
 
     test('menambahkan slash untuk route tanpa slash', () {
-      expect(
-        AppRoutes.fromFcmData({'route': 'pengumuman/3'}),
-        '/pengumuman/3',
-      );
+      expect(AppRoutes.fromFcmData({'route': 'pengumuman/3'}), '/pengumuman/3');
     });
 
     test('mempertahankan slash untuk route dengan slash', () {

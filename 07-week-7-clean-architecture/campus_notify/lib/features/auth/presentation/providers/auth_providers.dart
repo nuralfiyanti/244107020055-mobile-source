@@ -1,5 +1,6 @@
 import 'package:dio/dio.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+
 import '../../../../data/api_client.dart';
 import '../../../../data/token_store.dart';
 import '../../domain/repositories/auth_repository.dart';
@@ -8,8 +9,9 @@ import '../../data/repositories/auth_repository_impl.dart';
 
 final tokenStoreProvider = Provider<TokenStore>((ref) => TokenStore());
 
-final authRepositoryProvider =
-    Provider<AuthRepository>((ref) => AuthRepositoryImpl());
+final authRepositoryProvider = Provider<AuthRepository>(
+  (ref) => AuthRepositoryImpl(),
+);
 
 final loginUseCaseProvider = Provider<LoginUseCase>((ref) {
   return LoginUseCase(ref.watch(authRepositoryProvider));
@@ -22,8 +24,9 @@ final apiClientProvider = Provider<Dio>(
   ),
 );
 
-final authStateProvider =
-    AsyncNotifierProvider<AuthNotifier, bool>(AuthNotifier.new);
+final authStateProvider = AsyncNotifierProvider<AuthNotifier, bool>(
+  AuthNotifier.new,
+);
 
 class AuthNotifier extends AsyncNotifier<bool> {
   @override

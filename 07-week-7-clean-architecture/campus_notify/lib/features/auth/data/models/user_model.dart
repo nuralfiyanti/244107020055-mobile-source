@@ -1,10 +1,7 @@
 import '../../domain/entities/user.dart';
 
 class UserModel extends User {
-  const UserModel({
-    required super.accessToken,
-    required super.refreshToken,
-  });
+  const UserModel({required super.accessToken, required super.refreshToken});
 
   factory UserModel.fromEntity(User user) {
     return UserModel(
@@ -21,7 +18,7 @@ class UserModel extends User {
   }
 
   Map<String, dynamic> toMap() => {
-        'access': accessToken,
-        'refresh': refreshToken,
-      };
+    'access': accessToken,
+    'refresh': refreshToken,
+  };
 }
