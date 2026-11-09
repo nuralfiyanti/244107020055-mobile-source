@@ -7,8 +7,9 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../data/device_repository.dart';
 import '../messaging/push_service.dart';
 
-final pushControllerProvider =
-    NotifierProvider<PushController, PushState>(PushController.new);
+final pushControllerProvider = NotifierProvider<PushController, PushState>(
+  PushController.new,
+);
 
 class PushState {
   const PushState({
@@ -57,7 +58,9 @@ class PushController extends Notifier<PushState> {
     state = state.copyWith(
       permission: permission ? 'Diberikan' : 'Tidak diberikan',
     );
-    _addLog(permission ? 'Izin notifikasi diberikan' : 'Izin notifikasi ditolak');
+    _addLog(
+      permission ? 'Izin notifikasi diberikan' : 'Izin notifikasi ditolak',
+    );
 
     _tokenSubscription = await initFcmToken(
       onToken: _handleToken,
