@@ -11,4 +11,3 @@ class NoteValidator {
   bool isValidContent(String content) {
     return content.isNotEmpty;
   }
-}

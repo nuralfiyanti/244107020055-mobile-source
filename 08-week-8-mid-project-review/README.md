@@ -60,6 +60,40 @@
 <br>
 <blockquote>
 
+- **Review AI:** Meminta AI mereview file `login.dart` dan `auth_repository_impl.dart` dengan prompt khusus untuk mencari 5 temuan (blocker/saran).
+- **Verifikasi & Keputusan:** Membuat file `docs/ai-review-vs-keputusan.md`. Dari 5 temuan AI, saya **menerima 4 temuan** dan **menolak 1 temuan** (usulan mengganti Record Tuple menjadi *sealed class* karena menambah kompleksitas yang tidak perlu).
+- **Refactoring:** Menerapkan saran yang diterima ke dalam kode `LoginUseCase` dan `AuthRepositoryImpl`, lalu memastikan `flutter test` tetap hijau.
+
+**Dokumentasi Lengkap:** [ai-review-vs-keputusan.md](docs/ai-review-vs-keputusan.md)
+
+</blockquote>
+</details>
+
+<details open>
+<summary><h3>5. Refleksi Individu (Bab 8)</h3></summary>
+<br>
+<blockquote>
+
+- **LGTM Buta vs Approve Bertanggung Jawab:** LGTM buta hanya melihat judul PR tanpa mengecek kode, berisiko meloloskan *bug* ke `develop`. Approve bertanggung jawab berarti memverifikasi arsitektur, *edge case*, dan menjalankan test sebelum menyetujui.
+- **Kapan Request Changes?** Wajib *Request Changes* jika ada pelanggaran arsitektur (domain mengimpor Flutter/Dio), *bug* logika fatal, atau *test* gagal. Cukup saran jika hanya optimasi mikro atau penamaan variabel.
+- **Review AI yang Ditolak:** Saya menolak usulan AI mengganti `(User?, Failure?)` menjadi `Result<S, E>`. Alasannya, Record Tuple Dart 3 sudah cukup aman dan sesuai kesepakatan tim untuk menjaga kesederhanaan (KISS) tanpa *library* tambahan.
+- **Perbaikan Konkret:** Memindahkan validasi email/password dari Data Layer ke Domain Use Case. Dampaknya, *business logic* menjadi murni, terisolasi, dan mudah di-*test* tanpa bergantung pada *repository*.
+
+</blockquote>
+</details>
+
+<details open>
+<summary><h3>6. Referensi Pendukung</h3></summary>
+<br>
+<blockquote>
+
+- [Slide Week 8: Mid Project Review & Code Review](#)
+- [Atlassian: GitFlow Workflow](https://www.atlassian.com/git/tutorials/comparing-workflows/gitflow-workflow)
+- [GitHub Docs: About Pull Request Reviews](https://docs.github.com/en/pull-requests/collaborating-with-pull-requests/reviewing-changes-in-pull-requests/about-pull-request-reviews)
+- [Conventional Commits](https://www.conventionalcommits.org/)
+- [Flutter Static Analysis](https://docs.flutter.dev/testing/static-analysis)
+- [Dart Linter Rules](https://dart.dev/tools/linter-rules)
+- [GitHub Actions Documentation](https://docs.github.com/en/actions)
 
 </blockquote>
 </details>
