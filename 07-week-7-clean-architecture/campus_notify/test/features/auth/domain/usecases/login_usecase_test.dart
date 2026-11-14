@@ -16,10 +16,7 @@ class FakeAuthRepository implements AuthRepository {
     lastEmail = email;
     lastPassword = password;
     return (
-      const User(
-        accessToken: 'fake-access',
-        refreshToken: 'fake-refresh',
-      ),
+      const User(accessToken: 'fake-access', refreshToken: 'fake-refresh'),
       null,
     );
   }

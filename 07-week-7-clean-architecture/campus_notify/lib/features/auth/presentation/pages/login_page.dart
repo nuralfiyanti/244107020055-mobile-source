@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+
 import '../providers/auth_providers.dart';
 
 class LoginPage extends ConsumerStatefulWidget {
@@ -21,10 +22,9 @@ class _LoginPageState extends ConsumerState<LoginPage> {
   }
 
   void _submit() {
-    ref.read(authStateProvider.notifier).login(
-          _emailController.text.trim(),
-          _passwordController.text,
-        );
+    ref
+        .read(authStateProvider.notifier)
+        .login(_emailController.text.trim(), _passwordController.text);
   }
 
   @override

@@ -2,9 +2,8 @@ import 'dart:async';
 
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
-import 'package:flutter/foundation.dart';   
+import 'package:flutter/foundation.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
-
 
 typedef TokenHandler = Future<void> Function(String token);
 typedef RouteHandler = void Function(String route);
@@ -48,7 +47,8 @@ Future<void> initLocalNotifications({RouteHandler? onRoute}) async {
   );
   await _localNotifications
       .resolvePlatformSpecificImplementation<
-          AndroidFlutterLocalNotificationsPlugin>()
+        AndroidFlutterLocalNotificationsPlugin
+      >()
       ?.createNotificationChannel(channel);
 }
 
@@ -93,8 +93,9 @@ Future<String?> initializeMessageHandlers({RouteHandler? onRoute}) async {
   });
 
   final initialMessage = await FirebaseMessaging.instance.getInitialMessage();
-  final initialRoute =
-      initialMessage == null ? null : _routeFromMessage(initialMessage);
+  final initialRoute = initialMessage == null
+      ? null
+      : _routeFromMessage(initialMessage);
   return initialRoute;
 }
 
@@ -108,8 +109,8 @@ Future<StreamSubscription<String>> initFcmToken({
 }) async {
   final fetch = getToken ?? FirebaseMessaging.instance.getToken;
   final refresh = tokenRefresh ?? FirebaseMessaging.instance.onTokenRefresh;
-  final subscribe = subscribeToTopic ??
-      FirebaseMessaging.instance.subscribeToTopic;
+  final subscribe =
+      subscribeToTopic ?? FirebaseMessaging.instance.subscribeToTopic;
 
   final token = await fetch();
   if (token != null) await onToken(token);
@@ -127,9 +128,8 @@ class PushService {
   PushService({
     FirebaseMessaging? messaging,
     FlutterLocalNotificationsPlugin? notifications,
-  })  : _messagingOverride = messaging,
-        _notifications =
-            notifications ?? FlutterLocalNotificationsPlugin();
+  }) : _messagingOverride = messaging,
+       _notifications = notifications ?? FlutterLocalNotificationsPlugin();
 
   final FirebaseMessaging? _messagingOverride;
   final FlutterLocalNotificationsPlugin _notifications;
@@ -146,9 +146,7 @@ class PushService {
     }
 
     _messaging = _messagingOverride ?? FirebaseMessaging.instance;
-    FirebaseMessaging.onBackgroundMessage(
-      firebaseMessagingBackgroundHandler,
-    );
+    FirebaseMessaging.onBackgroundMessage(firebaseMessagingBackgroundHandler);
 
     await _initializeLocalNotifications(onRoute);
     await _messaging.requestPermission(
@@ -175,9 +173,7 @@ class PushService {
     );
 
     final initialMessage = await _messaging.getInitialMessage();
-    return initialMessage == null
-        ? null
-        : _routeFromMessage(initialMessage);
+    return initialMessage == null ? null : _routeFromMessage(initialMessage);
   }
 
   Future<void> _initializeLocalNotifications(RouteHandler? onRoute) async {
@@ -201,7 +197,8 @@ class PushService {
     );
     await _notifications
         .resolvePlatformSpecificImplementation<
-            AndroidFlutterLocalNotificationsPlugin>()
+          AndroidFlutterLocalNotificationsPlugin
+        >()
         ?.createNotificationChannel(channel);
   }
 
@@ -236,5 +233,4 @@ class PushService {
     final route = _routeFromMessage(message);
     if (route != null) onRoute?.call(route);
   }
-
 }
