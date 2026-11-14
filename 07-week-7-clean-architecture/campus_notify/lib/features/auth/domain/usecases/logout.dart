@@ -1,4 +1,3 @@
 class LogoutUseCase {
-  Future<void> call() async {
-  }
+  Future<void> call() async {}
 }
