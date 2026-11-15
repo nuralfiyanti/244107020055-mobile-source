@@ -209,21 +209,21 @@ No issues found! (ran in 10.5s)
 </blockquote>
 </details>
 
-Gambar 1: Bukti Test & Analyze Hijau
-(Terminal menunjukkan +6: All tests passed! dan No issues found!)
-![alt text](<screenshots/Screenshot 2026-11-15 015653.png>)
+## Lampiran Bukti Screenshoot
+**Gambar 1: Bukti Test & Analyze Hijau**
+*(Terminal menunjukkan `+6: All tests passed!` dan `No issues found!`)*
+![Test & Analyze Hijau](<screenshots/Screenshot 2026-11-15 015653.png>)
 
-Gambar 2: Bukti Halaman Notes (Daftar Catatan)
-(UI menampilkan Search Bar dan daftar catatan)
-![alt text](<screenshots/WhatsApp Image 2026-11-15 at 11.02.21.jpeg>)
+**Gambar 2: Bukti Halaman Notes (Daftar Catatan)**
+*(UI menampilkan Search Bar dan daftar catatan)*
+![UI Notes](<screenshots/WhatsApp Image 2026-11-15 at 11.02.21.jpeg>)
 
-Gambar 3: Bukti Empty State (Pencarian Kosong)
-(UI menampilkan tulisan "Catatan tidak ditemukan" saat mencari "zzz")
-![alt text](<screenshots/Screenshot 2026-11-15 020212.png>) 
+**Gambar 3: Bukti Empty State (Pencarian Kosong)**
+*(UI menampilkan tulisan "Catatan tidak ditemukan" saat mencari "zzz")*
+![Empty State](<screenshots/Screenshot 2026-11-15 020212.png>) 
 (Ganti nama file di atas dengan nama file screenshot Empty State yang baru kamu ambil)
 
-Gambar 4: Bukti Sterilitas Layer Domain (Grep)
-(Terminal menunjukkan perintah grep tanpa output/error)
-https://./screenshots/WhatsApp%20Image%202026-11-15%20at%2011.02.21.jpeg
+**Gambar 4: Bukti Sterilitas Layer Domain (Grep)**
+*(Terminal menunjukkan perintah grep tanpa output/error)*
 (Ganti nama file di atas dengan nama file screenshot grep yang kamu punya)
-![alt text](<screenshots/WhatsApp Image 2026-11-15 at 11.02.21 (1).jpeg>)
+![Grep Steril](<screenshots/WhatsApp Image 2026-11-15 at 11.02.21 (1).jpeg>)
