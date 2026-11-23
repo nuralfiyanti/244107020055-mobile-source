@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../../providers/push_provider.dart';
+import '../../../notes/presentation/pages/notes_page.dart';
 import '../providers/auth_providers.dart';
 
 class HomePage extends ConsumerStatefulWidget {
@@ -41,6 +42,20 @@ class _HomePageState extends ConsumerState<HomePage> {
       ),
       body: ListView(
         children: [
+          // Tombol untuk masuk ke halaman Catatan
+          Padding(
+            padding: const EdgeInsets.all(16.0),
+            child: ElevatedButton.icon(
+              onPressed: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (context) => NotesPage()),
+                );
+              },
+              icon: const Icon(Icons.search),
+              label: const Text('Buka Catatan'),
+            ),
+          ),
           const ListTile(
             leading: Icon(Icons.lock),
             title: Text('Sesi aktif'),
