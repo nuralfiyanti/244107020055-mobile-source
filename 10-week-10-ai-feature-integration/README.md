@@ -192,6 +192,37 @@ No issues found! (ran in 7.6s)
 </details>
 
 <details open>
+<summary><h3>4. OCR, Speech-to-Text, dan Image Understanding</h3></summary>
+<br>
+<blockquote>
+
+Selain antarmuka chat berbasis teks, integrasi AI pada aplikasi mobile juga mencakup pemrosesan multimedia:
+
+### 1. OCR (*Optical Character Recognition*)
+- Ambil gambar dari kamera atau galeri menggunakan paket `image_picker`.
+- Kirim gambar ke AI API (misalnya Gemini Vision API) untuk ekstraksi teks otomatis.
+- **Contoh penggunaan:** Pemindaian Kartu Tanda Mahasiswa (KTM), struk pembayaran (*receipt*), dokumen akademik, atau papan pengumuman kampus.
+
+### 2. *Speech-to-Text*
+- Rekam suara pengguna menggunakan paket `record` atau `just_audio`.
+- Konversi rekaman audio menjadi teks melalui AI API.
+- **Contoh penggunaan:** Input pertanyaan cepat (*voice input*) dan peningkatan aksesibilitas bagi pengguna.
+
+### 3. *Image Understanding*
+- Unggah gambar dan minta AI menghasilkan deskripsi atau analisis isi gambar.
+- **Contoh penggunaan:** Deskripsi produk, identifikasi objek di lingkungan kampus, dan fitur aksesibilitas visual.
+
+### Contoh Pemanggilan API pada Flutter
+
+```dart
+final result = await aiService.recognizeText(imageFile);
+final text = await aiService.speechToText(audioFile);
+```
+
+</blockquote>
+</details>
+
+<details open>
 <summary><h3>5. Privasi, Biaya, Error Handling, dan Fallback</h3></summary>
 <br>
 <blockquote>
@@ -282,6 +313,58 @@ Tombol akses **Asisten Kampus AI** terintegrasi pada halaman utama `Campus Notif
 ![Akses Asisten Kampus AI di Halaman Utama](screenshots/03-home-ai-button.jpeg)
 
 ![Tampilan Halaman Asisten Kampus AI](screenshots/03-chat-screen-ui.jpeg)
+
+</blockquote>
+</details>
+
+<details open>
+<summary><h3>6. Hasil Pengujian (`flutter analyze` & `flutter test`)</h3></summary>
+<br>
+<blockquote>
+
+Pengujian dilakukan langsung pada direktori `10-week-10-ai-feature-integration/` setelah seluruh fitur dan test selesai diimplementasikan:
+
+1. **Analisis Statis (`flutter analyze`)**
+   ```text
+   Analyzing 10-week-10-ai-feature-integration...
+   No issues found! (ran in 13.1s)
+   ```
+
+2. **Unit Test & Widget Test (`flutter test`)**
+   Seluruh **47 test** berjalan dan lulus (`00:22 +47: All tests passed!`), mencakup:
+   - `test/ai_service_test.dart` (10 test): validasi input sensitif (NIK 16 digit, nomor telepon `08...`/`+62...`, email, kata kunci `password`/`alamat`), penyimpanan & pembacaan API key via `FlutterSecureStorage`, pesan setup saat API key kosong, pemanfaatan local cache, rate limit maks. 20 request/sesi, serta fallback saat HTTP error 500 maupun exception jaringan.
+   - `test/chat_screen_test.dart` (3 test): rendering `ChatScreen` & `_SecurityBanner`, pengiriman pesan beserta indikator loading dan animasi streaming respons, serta munculnya `AlertDialog` error dengan tombol fallback offline.
+   - Seluruh test fitur sebelumnya (`auth_test.dart`, `auth_push_test.dart`, `push_service_test.dart`, serta `test/features/auth/...` dan `test/features/notes/...`).
+
+3. **Log Prompt & Evaluasi AI**
+   Dokumentasi lengkap prompt, output awal, dan catatan validasi tersedia pada [docs/ai-log.md](docs/ai-log.md).
+
+![Flutter Analyze & Test]
+![alt text](<screenshots/Screenshot 2026-11-27 154833.png>) <br>
+![alt text](<screenshots/Screenshot 2026-11-27 154912.png>) <br>
+
+</blockquote>
+</details>
+
+<details open>
+<summary><h3>7. Refleksi</h3></summary>
+<br>
+<blockquote>
+
+1. **Fitur AI mana yang diintegrasikan dan mengapa?**
+   Fitur yang diintegrasikan adalah **Asisten Kampus AI (Chat Interface)** berbasis Gemini API (`AiService` + `ChatScreen`) menggunakan Riverpod 3.x. Fitur ini dipilih karena paling relevan untuk membantu mahasiswa menanyakan informasi akademik, jadwal kuliah, atau pengumuman kampus secara cepat dan interaktif dalam satu layar.
+
+2. **Bagaimana melindungi privasi pengguna saat menggunakan AI API?**
+   - **Validasi sisi klien (`_validatePrivacy()`):** Input yang mengandung pola NIK 16 digit, nomor telepon (`08...` / `+62...`), alamat email, atau kata kunci sensitif (`password`, `alamat`) langsung diblokir sebelum dikirim ke API.
+   - **Penyimpanan API Key aman:** API Key Gemini tidak pernah di-hardcode di kode sumber maupun log (`docs/ai-log.md`), melainkan disimpan terenkripsi di perangkat menggunakan `FlutterSecureStorage`.
+   - **Edukasi UI:** `_SecurityBanner` ditampilkan secara persisten di bagian atas `ChatScreen` untuk mengingatkan pengguna agar tidak mengirim data pribadi ke AI.
+
+3. **Fallback apa yang disediakan jika layanan AI error?**
+   - Pada level service (`AiService.ask()`), jika API key belum diatur, terjadi error HTTP (misal status 500), atau terjadi kegagalan jaringan, service mengembalikan pesan fallback lokal yang informatif.
+   - Pada level UI (`ChatScreen`), jika `Exception` tertangkap oleh blok `try/catch`, aplikasi menampilkan `AlertDialog` ("Layanan AI Sibuk") dengan tombol **Gunakan Jawaban Offline** (`addFallback()`) sehingga pengguna tetap mendapatkan arahan akademik standar tanpa aplikasi mengalami crash.
+
+4. **Satu hal yang dipelajari tentang UX fitur AI di mobile?**
+   Responsivitas dan kejelasan status sangat krusial pada mobile karena panggilan LLM API memiliki latensi. Menampilkan indikator loading animatif (`_TypingIndicator`), efek teks bertahap (`_StreamingText`), serta penanganan error yang tidak memblokir pengguna (opsi fallback offline) membuat pengalaman chat terasa jauh lebih natural dan dapat diandalkan.
 
 </blockquote>
 </details>
