@@ -24,6 +24,7 @@ class AiService {
       'Untuk informasi jadwal, hubungi akademik kampus atau cek portal mahasiswa.';
 
   final FlutterSecureStorage _storage;
+  final http.Client _client;
 
   /// Cache in-memory: normalized question → jawaban AI.
   final Map<String, String> _cache = {};
@@ -31,8 +32,9 @@ class AiService {
   /// Jumlah request yang sudah dikirim ke API dalam sesi ini.
   int _requestCount = 0;
 
-  AiService({FlutterSecureStorage? storage})
-      : _storage = storage ?? const FlutterSecureStorage();
+  AiService({FlutterSecureStorage? storage, http.Client? client})
+      : _storage = storage ?? const FlutterSecureStorage(),
+        _client = client ?? http.Client();
 
   // ---------------------------------------------------------------------------
   // API Key management
@@ -142,7 +144,7 @@ class AiService {
     final uri = Uri.parse('$_apiBaseUrl?key=$apiKey');
     final requestBody = _buildRequestBody(question);
 
-    final response = await http.post(
+    final response = await _client.post(
       uri,
       headers: {'Content-Type': 'application/json'},
       body: jsonEncode(requestBody),
