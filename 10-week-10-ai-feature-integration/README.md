@@ -339,7 +339,7 @@ Pengujian dilakukan langsung pada direktori `10-week-10-ai-feature-integration/`
 3. **Log Prompt & Evaluasi AI**
    Dokumentasi lengkap prompt, output awal, dan catatan validasi tersedia pada [docs/ai-log.md](docs/ai-log.md).
 
-![Flutter Analyze & Test]
+![Flutter Analyze & Test] <br>
 ![alt text](<screenshots/Screenshot 2026-11-27 154833.png>) <br>
 ![alt text](<screenshots/Screenshot 2026-11-27 154912.png>) <br>
 
