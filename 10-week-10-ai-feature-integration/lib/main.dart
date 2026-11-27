@@ -6,6 +6,7 @@ import 'package:go_router/go_router.dart';
 import 'features/auth/presentation/pages/home_page.dart';
 import 'features/auth/presentation/pages/login_page.dart';
 import 'features/auth/presentation/providers/auth_providers.dart';
+import 'features/chat_screen.dart';
 import 'messaging/push_service.dart';
 import 'pages/announcement_page.dart';
 import 'pages/debug_page.dart';
@@ -63,6 +64,7 @@ GoRouter buildRouter(ProviderContainer container) {
     routes: [
       GoRoute(path: AppRoutes.login, builder: (_, _) => const LoginPage()),
       GoRoute(path: AppRoutes.home, builder: (_, _) => const HomePage()),
+      GoRoute(path: AppRoutes.chat, builder: (_, _) => const ChatScreen()),
       GoRoute(path: AppRoutes.debug, builder: (_, _) => const DebugPage()),
       GoRoute(
         path: '${AppRoutes.pengumuman}/:id',

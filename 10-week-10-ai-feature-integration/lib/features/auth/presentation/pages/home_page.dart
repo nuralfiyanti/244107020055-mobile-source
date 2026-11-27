@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../../providers/push_provider.dart';
+import '../../../../routes.dart';
 import '../../../notes/presentation/pages/notes_page.dart';
 import '../providers/auth_providers.dart';
 
@@ -54,6 +55,15 @@ class _HomePageState extends ConsumerState<HomePage> {
               },
               icon: const Icon(Icons.search),
               label: const Text('Buka Catatan'),
+            ),
+          ),
+          // Tombol untuk masuk ke Chat AI
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16.0),
+            child: FilledButton.icon(
+              onPressed: () => context.push(AppRoutes.chat),
+              icon: const Icon(Icons.smart_toy_outlined),
+              label: const Text('Asisten Kampus AI'),
             ),
           ),
           const ListTile(
