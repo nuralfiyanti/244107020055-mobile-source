@@ -166,5 +166,123 @@ No issues found! (ran in 12.0s)
 
 ![AI Service Code](screenshots/02-ai-service-code.png)
 
+## Langkah 3: Buat Chat Screen (`lib/features/chat_screen.dart`)
+
+Dibuat halaman chat interaktif pada `lib/features/chat_screen.dart` dengan dukungan **streaming/typing response** dan **indikator loading**, serta diintegrasikan ke navigasi aplikasi (`routes.dart`, `main.dart`, dan `home_page.dart`).
+
+> **Catatan keamanan:** Jangan pernah mengirim NIK, nomor telepon, alamat, atau data sensitif pengguna ke AI API. Gunakan data anonim atau ID internal saja.
+
+### Fitur yang Diimplementasikan
+- **State Management (Riverpod 3.x):** Menggunakan `Notifier<_ChatState>` dan `NotifierProvider.autoDispose` untuk mengelola daftar pesan, status loading, dan pesan error.
+- **Streaming & Loading UI:** `_StreamingText` menampilkan respons asisten secara bertahap (animasi per 3 karakter) disertai `_TypingIndicator` (`_DotsLoader`) saat menunggu respons API.
+- **Banner Keamanan (`_SecurityBanner`):** Pengingat visual di bagian atas layar agar pengguna tidak mengirimkan data sensitif ke AI.
+- **Pengaturan API Key (`_showApiKeyDialog`):** Dialog input API key Gemini yang disimpan secara terenkripsi menggunakan `FlutterSecureStorage`.
+- **Error Handling & Fallback (`_showErrorDialog`):** Menangkap kegagalan request dan menyediakan opsi **Gunakan Jawaban Offline** langsung ke dalam percakapan.
+
+Hasil `flutter analyze` setelah implementasi `chat_screen.dart`:
+
+```
+Analyzing 10-week-10-ai-feature-integration...
+No issues found! (ran in 7.6s)
+```
+
+![Chat Screen Code](screenshots/03-chat-screen-code.png)
+
 </blockquote>
 </details>
+
+<details open>
+<summary><h3>5. Privasi, Biaya, Error Handling, dan Fallback</h3></summary>
+<br>
+<blockquote>
+
+### Tabel Risiko dan Mitigasi
+
+| Aspek | Risiko | Mitigasi yang Diterapkan |
+|---|---|---|
+| **Privasi Data** | Pengguna tidak sengaja mengirim NIK, nomor telepon, email, atau kata kunci sensitif ke AI API eksternal | Validasi lokal `_validatePrivacy()` di `AiService` yang menolak input sensitif sebelum request dikirim + `_SecurityBanner` pada `ChatScreen` |
+| **Keamanan API Key** | API key Gemini terekspos di source code atau repositori Git | API key tidak pernah di-hardcode; disimpan terenkripsi per perangkat menggunakan `FlutterSecureStorage` (`ai_api_key`) |
+| **Biaya & Kuota Token** | Pemanggilan API berulang untuk pertanyaan yang sama atau spam request | Local cache (`Map<String, String>`) untuk mengembalikan jawaban tersimpan + rate limiter maks. 20 request per sesi |
+| **Kegagalan Jaringan / API** | Koneksi terputus, timeout, atau layanan AI mengembalikan status error | Blok `try/catch` pada `_ChatNotifier.sendMessage()` yang menampilkan `AlertDialog` informatif beserta opsi fallback offline |
+| **Ketersediaan Layanan** | Layanan AI tidak dapat diakses atau API key belum diatur | Fallback lokal (`addFallback()`) yang memberikan panduan akademik standar agar aplikasi tetap responsif |
+
+### Contoh Implementasi `try/catch` dan `AlertDialog` Fallback
+
+```dart
+// State & Notifier (lib/features/chat_screen.dart)
+Future<void> sendMessage(String question) async {
+  if (question.trim().isEmpty) return;
+
+  state = state.copyWith(
+    messages: [
+      ...state.messages,
+      _ChatMessage(sender: _Sender.user, text: question.trim()),
+    ],
+    isLoading: true,
+    clearError: true,
+  );
+
+  try {
+    final answer = await _service.ask(question.trim());
+    state = state.copyWith(
+      messages: [
+        ...state.messages,
+        _ChatMessage(sender: _Sender.assistant, text: answer),
+      ],
+      isLoading: false,
+    );
+  } on Exception catch (e) {
+    state = state.copyWith(
+      isLoading: false,
+      errorMessage: e.toString().replaceFirst('Exception: ', ''),
+    );
+  } catch (_) {
+    state = state.copyWith(
+      isLoading: false,
+      errorMessage:
+          'Layanan AI sedang sibuk. Coba lagi nanti atau gunakan mode offline.',
+    );
+  }
+}
+```
+
+```dart
+// AlertDialog Fallback pada ChatScreen
+void _showErrorDialog(String message) {
+  showDialog<void>(
+    context: context,
+    builder: (ctx) => AlertDialog(
+      icon: const Icon(Icons.warning_amber_rounded, color: Colors.orange),
+      title: const Text('Layanan AI Sibuk'),
+      content: Text(message),
+      actions: [
+        TextButton(
+          onPressed: () {
+            Navigator.pop(ctx);
+            ref.read(_chatProvider.notifier).clearError();
+          },
+          child: const Text('Tutup'),
+        ),
+        FilledButton(
+          onPressed: () {
+            Navigator.pop(ctx);
+            ref.read(_chatProvider.notifier).addFallback();
+          },
+          child: const Text('Gunakan Jawaban Offline'),
+        ),
+      ],
+    ),
+  );
+}
+```
+### Bukti Tampilan Aplikasi (Mobile)
+
+Tombol akses **Asisten Kampus AI** terintegrasi pada halaman utama `Campus Notify`, dan mengarah ke halaman chat lengkap dengan *security banner*, tombol pengaturan API Key, serta kolom input pertanyaan:
+
+![Akses Asisten Kampus AI di Halaman Utama](screenshots/03-home-ai-button.jpeg)
+
+![Tampilan Halaman Asisten Kampus AI](screenshots/03-chat-screen-ui.jpeg)
+
+</blockquote>
+</details>
+
