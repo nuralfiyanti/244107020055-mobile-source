@@ -279,3 +279,37 @@ CachedNetworkImage(
 </blockquote>
 </details>
 
+<details open>
+<summary><h3>9. Refleksi & Referensi Pendukung</h3></summary>
+<br>
+<blockquote>
+
+Dokumentasi lengkap audit dan hasil optimasi tersedia pada [docs/performance-findings.md](docs/performance-findings.md) dan [docs/performance-report.md](docs/performance-report.md).
+
+### Refleksi
+
+1. **Optimasi mana yang memberikan dampak terbesar dan mengapa?**
+   Pembatasan lingkup rebuild dan isolasi repaint pada layar interaktif (`NotesPage` dengan `ValueListenableBuilder` + `Consumer` terlokalisasi, serta `ChatScreen` dengan `select()` + `RepaintBoundary`) memberikan dampak paling terasa pada *UI Thread* dan *Raster Thread*. Sebelumnya, setiap ketikan karakter pada kolom pencarian atau perubahan status loading memicu rebuild seluruh `Scaffold`; setelah dipecah, hanya sub-widget yang relevan yang dibangun ulang dan animasi tidak memicu repaint pada area statis di sekitarnya.
+
+2. **Bagaimana memverifikasi bahwa optimasi benar-benar bekerja (bukan *placebo*)?**
+   Verifikasi dilakukan pada dua lapis:
+   - **Pengujian terukur di level kode & test:** Unit test memastikan `_GetResponseCacheInterceptor` menurunkan pemanggilan adapter jaringan dari 2 kali menjadi 1 kali dalam TTL 30 detik, `_searchCache` mengembalikan hasil cache, serta widget test memastikan tidak ada exception `Timer`/controller tertinggal saat `dispose()` dijalankan.
+   - **Profiling runtime (`flutter run --profile`):** Membandingkan Flame Chart, *frame time* (hijau `< 16 ms` vs kuning/merah), serta *Heap Snapshot* sebelum dan sesudah 5x navigasi detail–kembali pada Flutter DevTools (`screenshots/before-profile.png` dan `screenshots/after-profile.png`).
+
+3. ***Trade-off* apa yang dihadapi?**
+   - **Kompleksitas kode:** Pemecahan widget menjadi class `const` kecil (`_NotesSearchBar`, `_NoteTile`, `_AnnouncementTile`, `_HomeQuickActions`) dan penggunaan `.select()` membuat jumlah class dan baris kode sedikit bertambah dibanding menulis UI dalam satu method `build()`.
+   - **Konsumsi memori layer & kesegaran data:** Penggunaan `RepaintBoundary` menambah layer komposisi GPU per item pesan, dan cache `GET` 30 detik pada `Dio` membuat pembaruan data baru tertunda hingga TTL habis kecuali request menyertakan `extra: {'skipCache': true}`.
+
+4. **Kapan sebaiknya *optimasi premature* dihindari?**
+   Optimasi premature perlu dihindari ketika fitur belum stabil atau belum ada indikasi *bottleneck* nyata dari hasil profiling. Menambahkan banyak `RepaintBoundary`, caching kompleks, atau memecah widget secara berlebihan pada layar statis yang jarang berubah hanya menambah kompleksitas dan beban pemeliharaan tanpa manfaat performa yang berarti.
+
+### Referensi Pendukung
+- [Flutter DevTools Overview](https://docs.flutter.dev/tools/devtools/overview)
+- [Flutter UI Performance](https://docs.flutter.dev/perf/ui-performance)
+- [Flutter Performance Best Practices](https://docs.flutter.dev/perf/best-practices)
+- [cached_network_image (pub.dev)](https://pub.dev/packages/cached_network_image)
+- [Dio HTTP Client (pub.dev)](https://pub.dev/packages/dio)
+
+</blockquote>
+</details>
+
