@@ -29,12 +29,6 @@ class _LoginPageState extends ConsumerState<LoginPage> {
 
   @override
   Widget build(BuildContext context) {
-    final auth = ref.watch(authStateProvider);
-    final loading = auth.isLoading;
-    final errorText = auth.hasError
-        ? auth.error.toString().replaceFirst('Exception: ', '')
-        : null;
-
     return Scaffold(
       appBar: AppBar(title: const Text('Masuk')),
       body: Center(
@@ -57,25 +51,44 @@ class _LoginPageState extends ConsumerState<LoginPage> {
                   obscureText: true,
                   decoration: const InputDecoration(labelText: 'Kata sandi'),
                 ),
-                if (errorText != null) ...[
-                  const SizedBox(height: 12),
-                  Text(
-                    errorText,
-                    style: TextStyle(
-                      color: Theme.of(context).colorScheme.error,
-                    ),
-                  ),
-                ],
+                Consumer(
+                  builder: (context, ref, _) {
+                    final errorText = ref.watch(
+                      authStateProvider.select(
+                        (auth) => auth.hasError
+                            ? auth.error.toString().replaceFirst('Exception: ', '')
+                            : null,
+                      ),
+                    );
+                    if (errorText == null) return const SizedBox.shrink();
+                    return Padding(
+                      padding: const EdgeInsets.only(top: 12),
+                      child: Text(
+                        errorText,
+                        style: TextStyle(
+                          color: Theme.of(context).colorScheme.error,
+                        ),
+                      ),
+                    );
+                  },
+                ),
                 const SizedBox(height: 20),
-                FilledButton(
-                  onPressed: loading ? null : _submit,
-                  child: loading
-                      ? const SizedBox(
-                          width: 20,
-                          height: 20,
-                          child: CircularProgressIndicator(strokeWidth: 2),
-                        )
-                      : const Text('Masuk'),
+                Consumer(
+                  builder: (context, ref, _) {
+                    final loading = ref.watch(
+                      authStateProvider.select((auth) => auth.isLoading),
+                    );
+                    return FilledButton(
+                      onPressed: loading ? null : _submit,
+                      child: loading
+                          ? const SizedBox(
+                              width: 20,
+                              height: 20,
+                              child: CircularProgressIndicator(strokeWidth: 2),
+                            )
+                          : const Text('Masuk'),
+                    );
+                  },
                 ),
               ],
             ),

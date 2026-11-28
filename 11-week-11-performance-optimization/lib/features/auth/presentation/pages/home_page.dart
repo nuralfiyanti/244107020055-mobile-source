@@ -15,6 +15,8 @@ class HomePage extends ConsumerStatefulWidget {
 }
 
 class _HomePageState extends ConsumerState<HomePage> {
+  static const _announcementIds = [1, 2, 3];
+
   @override
   void initState() {
     super.initState();
@@ -22,6 +24,15 @@ class _HomePageState extends ConsumerState<HomePage> {
       () => ref.read(pushControllerProvider.notifier).start(),
     );
   }
+
+  void _openNotes() {
+    Navigator.push(
+      context,
+      MaterialPageRoute<void>(builder: (_) => const NotesPage()),
+    );
+  }
+
+  void _openChat() => context.push(AppRoutes.chat);
 
   @override
   Widget build(BuildContext context) {
@@ -41,45 +52,77 @@ class _HomePageState extends ConsumerState<HomePage> {
           ),
         ],
       ),
-      body: ListView(
+      body: Column(
         children: [
-          // Tombol untuk masuk ke halaman Catatan
-          Padding(
-            padding: const EdgeInsets.all(16.0),
-            child: ElevatedButton.icon(
-              onPressed: () {
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(builder: (context) => NotesPage()),
-                );
-              },
-              icon: const Icon(Icons.search),
-              label: const Text('Buka Catatan'),
-            ),
-          ),
-          // Tombol untuk masuk ke Chat AI
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16.0),
-            child: FilledButton.icon(
-              onPressed: () => context.push(AppRoutes.chat),
-              icon: const Icon(Icons.smart_toy_outlined),
-              label: const Text('Asisten Kampus AI'),
-            ),
+          _HomeQuickActions(
+            onOpenNotes: _openNotes,
+            onOpenChat: _openChat,
           ),
           const ListTile(
             leading: Icon(Icons.lock),
             title: Text('Sesi aktif'),
             subtitle: Text('Token tersimpan di secure storage'),
           ),
-          const Divider(),
-          for (final id in [1, 2, 3])
-            ListTile(
-              leading: const Icon(Icons.campaign),
-              title: Text('Pengumuman $id'),
-              onTap: () => context.push('/pengumuman/$id'),
+          const Divider(height: 1),
+          Expanded(
+            child: ListView.builder(
+              itemCount: _announcementIds.length,
+              itemBuilder: (context, index) =>
+                  _AnnouncementTile(id: _announcementIds[index]),
             ),
+          ),
         ],
       ),
+    );
+  }
+}
+
+class _HomeQuickActions extends StatelessWidget {
+  final VoidCallback onOpenNotes;
+  final VoidCallback onOpenChat;
+
+  const _HomeQuickActions({
+    required this.onOpenNotes,
+    required this.onOpenChat,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Padding(
+          padding: const EdgeInsets.all(16.0),
+          child: ElevatedButton.icon(
+            onPressed: onOpenNotes,
+            icon: const Icon(Icons.search),
+            label: const Text('Buka Catatan'),
+          ),
+        ),
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 16.0),
+          child: FilledButton.icon(
+            onPressed: onOpenChat,
+            icon: const Icon(Icons.smart_toy_outlined),
+            label: const Text('Asisten Kampus AI'),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _AnnouncementTile extends StatelessWidget {
+  final int id;
+
+  const _AnnouncementTile({required this.id});
+
+  @override
+  Widget build(BuildContext context) {
+    return ListTile(
+      leading: const Icon(Icons.campaign),
+      title: Text('Pengumuman $id'),
+      onTap: () => context.push('/pengumuman/$id'),
     );
   }
 }

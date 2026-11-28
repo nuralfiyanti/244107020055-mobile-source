@@ -3,6 +3,46 @@ import 'package:dio/dio.dart';
 import '../features/auth/domain/repositories/auth_repository.dart';
 import 'token_store.dart';
 
+class _CacheEntry {
+  final Response<dynamic> response;
+  final DateTime cachedAt;
+
+  const _CacheEntry({required this.response, required this.cachedAt});
+}
+
+/// Interceptor cache in-memory ringan untuk request GET yang sukses (TTL 30 detik).
+class _GetResponseCacheInterceptor extends Interceptor {
+  static const Duration _ttl = Duration(seconds: 30);
+  final Map<String, _CacheEntry> _cache = {};
+
+  @override
+  void onRequest(RequestOptions options, RequestInterceptorHandler handler) {
+    if (options.method.toUpperCase() == 'GET' &&
+        options.extra['skipCache'] != true) {
+      final entry = _cache[options.uri.toString()];
+      if (entry != null && DateTime.now().difference(entry.cachedAt) < _ttl) {
+        return handler.resolve(entry.response);
+      }
+    }
+    handler.next(options);
+  }
+
+  @override
+  void onResponse(
+    Response<dynamic> response,
+    ResponseInterceptorHandler handler,
+  ) {
+    if (response.requestOptions.method.toUpperCase() == 'GET' &&
+        response.statusCode == 200) {
+      _cache[response.requestOptions.uri.toString()] = _CacheEntry(
+        response: response,
+        cachedAt: DateTime.now(),
+      );
+    }
+    handler.next(response);
+  }
+}
+
 Dio buildApiClient(TokenStore store, AuthRepository auth) {
   final dio = Dio(
     BaseOptions(
@@ -12,7 +52,8 @@ Dio buildApiClient(TokenStore store, AuthRepository auth) {
     ),
   );
 
-  dio.interceptors.add(
+  dio.interceptors.addAll([
+    _GetResponseCacheInterceptor(),
     InterceptorsWrapper(
       onRequest: (options, handler) async {
         final access = await store.readAccess();
@@ -48,7 +89,7 @@ Dio buildApiClient(TokenStore store, AuthRepository auth) {
         }
       },
     ),
-  );
+  ]);
 
   return dio;
 }
