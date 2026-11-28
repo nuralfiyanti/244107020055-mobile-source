@@ -2,7 +2,7 @@ import '../../../../core/failures.dart';
 import '../../domain/entities/note.dart';
 import '../../domain/repositories/notes_repository.dart';
 
-/// Implementasi repository konkret untuk fitur Notes.
+/// Implementasi repository konkret untuk fitur Notes dengan local search cache.
 class NotesRepositoryImpl implements NotesRepository {
   // Mock data in-memory yang merepresentasikan data lokal SQLite
   final List<Note> _localDatabase = [
@@ -26,6 +26,9 @@ class NotesRepositoryImpl implements NotesRepository {
     ),
   ];
 
+  /// Cache hasil pencarian in-memory (normalized query -> hasil filter).
+  final Map<String, List<Note>> _searchCache = {};
+
   @override
   Future<(List<Note>?, Failure?)> searchNotesByTitle(String query) async {
     try {
@@ -34,12 +37,18 @@ class NotesRepositoryImpl implements NotesRepository {
       }
 
       final normalizedQuery = query.toLowerCase();
+      final cached = _searchCache[normalizedQuery];
+      if (cached != null) {
+        return (List<Note>.from(cached), null);
+      }
+
       // Case-insensitive filtering
       final results = _localDatabase.where((note) {
         return note.title.toLowerCase().contains(normalizedQuery);
       }).toList();
 
-      return (results, null);
+      _searchCache[normalizedQuery] = results;
+      return (List<Note>.from(results), null);
     } catch (e) {
       return (null, CacheFailure('Gagal memuat catatan: ${e.toString()}'));
     }

@@ -122,5 +122,106 @@ Teknik optimasi yang diterapkan:
 </blockquote>
 </details>
 
-*(Tahap 1 selesai — inisialisasi proyek, dependensi `cached_network_image` & `dio`, serta kerangka laporan awal. Pengerjaan akan berlanjut ke **Tahap 2**.)*
+<details open>
+<summary><h3>7. Praktikum Tahap 2: Audit Temuan & Penerapan Optimasi</h3></summary>
+<br>
+<blockquote>
+
+Audit statis lengkap beserta lokasi baris kode dicatat pada [docs/performance-findings.md](docs/performance-findings.md). Berikut ringkasan 5 temuan utama dan optimasi nyata yang telah diterapkan pada proyek `campus_notify`:
+
+### Ringkasan Temuan & Optimasi
+
+| No | Masalah yang Ditemukan | Optimasi yang Diterapkan | File Terkait |
+|---|---|---|---|
+| 1 | `NotesPage` memanggil `setState(() {})` pada root halaman saat mengetik/menghapus pencarian dan `ref.watch(notesListProvider)` di root `build()` | Menggunakan `ValueListenableBuilder` untuk `suffixIcon`, melokalisasi `Consumer`, serta mengekstrak `_NotesSearchBar`, `_NotesEmptyState`, `_NotesListView`, dan `_NoteTile` dengan `const` | `lib/features/notes/presentation/pages/notes_page.dart` |
+| 2 | `LoginPage` memanggil `ref.watch(authStateProvider)` di root `build()` sehingga seluruh form ikut rebuild saat loading/error | Menggunakan `Consumer` dengan `ref.watch(authStateProvider.select(...))` khusus untuk pesan error dan tombol submit | `lib/features/auth/presentation/pages/login_page.dart` |
+| 3 | `ChatScreen` memicu rebuild seluruh `Scaffold` saat state berubah, `_SecurityBanner()` belum `const`, serta animasi `_TypingIndicator` & `_MessageBubble` belum diisolasi | Menambahkan `const _SecurityBanner()`, menggunakan `.select()` untuk `messages` & `isLoading`, dan membungkus `_TypingIndicator` serta `_MessageBubble` dengan `RepaintBoundary` | `lib/features/chat_screen.dart` |
+| 4 | `HomePage` memakai `ListView(children: [...])` dengan loop inline dan `Navigator.push(..., NotesPage())` tanpa `const` | Menggunakan `ListView.builder` untuk daftar pengumuman, mengekstrak `_AnnouncementTile` (`const`), dan memakai `const NotesPage()` | `lib/features/auth/presentation/pages/home_page.dart` |
+| 5 | Pencarian catatan mengulang filter untuk query yang sama, `Dio` belum caching `GET`, dan `AnnouncementPage` belum memakai `CachedNetworkImage` | Menambahkan `_searchCache` di `NotesRepositoryImpl`, `_GetResponseCacheInterceptor` (TTL 30 detik) di `api_client.dart`, dan `CachedNetworkImage` (`memCacheWidth: 600`, `memCacheHeight: 300`) di `AnnouncementPage` | `lib/features/notes/data/repositories/notes_repository_impl.dart`, `lib/data/api_client.dart`, `lib/pages/announcement_page.dart` |
+
+### Cuplikan *Before vs After*
+
+#### 1. Menghilangkan `setState` & Melokalisasi Rebuild di `NotesPage`
+```dart
+// Before (notes_page.dart): root rebuild setiap ketikan & setState pada TextField
+Widget build(BuildContext context) {
+  final notesAsync = ref.watch(notesListProvider);
+  return Scaffold(
+    body: Column(children: [_buildSearchBar(), Expanded(child: notesAsync.when(...))]),
+  );
+}
+// onChanged: (value) { ref.read(notesListProvider.notifier).search(value); setState(() {}); }
+
+// After (notes_page.dart): ValueListenableBuilder + Consumer terlokalisasi + const sub-widgets
+Widget build(BuildContext context) {
+  return Scaffold(
+    appBar: AppBar(title: const Text('Catatan Kuliah')),
+    body: Column(
+      children: [
+        _NotesSearchBar(controller: _searchController, onChanged: _onSearchChanged, onClear: _onClearSearch),
+        Expanded(
+          child: Consumer(
+            builder: (context, ref, _) {
+              final notesAsync = ref.watch(notesListProvider);
+              return notesAsync.when(
+                loading: () => const Center(child: CircularProgressIndicator()),
+                error: (error, _) => Center(child: Text('Terjadi kesalahan: $error')),
+                data: (notes) => notes.isEmpty
+                    ? const _NotesEmptyState()
+                    : _NotesListView(notes: notes),
+              );
+            },
+          ),
+        ),
+      ],
+    ),
+  );
+}
+```
+
+#### 2. `RepaintBoundary` & Riverpod `.select()` di `ChatScreen`
+```dart
+// Before (chat_screen.dart)
+final chatState = ref.watch(_chatProvider);
+// ...
+_SecurityBanner(),
+// ...
+itemBuilder: (_, i) => _MessageBubble(message: chatState.messages[i]),
+if (chatState.isLoading) const _TypingIndicator(),
+
+// After (chat_screen.dart)
+const _SecurityBanner(),
+// ...
+final messages = ref.watch(_chatProvider.select((s) => s.messages));
+// ...
+itemBuilder: (_, i) => RepaintBoundary(child: _MessageBubble(message: messages[i])),
+// ...
+final isLoading = ref.watch(_chatProvider.select((s) => s.isLoading));
+if (isLoading) const RepaintBoundary(child: _TypingIndicator()),
+```
+
+#### 3. Optimasi Gambar dengan `CachedNetworkImage` di `AnnouncementPage`
+```dart
+// After (announcement_page.dart)
+CachedNetworkImage(
+  imageUrl: bannerUrl,
+  height: 180,
+  fit: BoxFit.cover,
+  memCacheWidth: 600,
+  memCacheHeight: 300,
+  fadeInDuration: const Duration(milliseconds: 200),
+  placeholder: (_, _) => const SizedBox(
+    height: 180,
+    child: Center(child: CircularProgressIndicator()),
+  ),
+  errorWidget: (_, _, _) => const SizedBox(
+    height: 180,
+    child: Center(child: Icon(Icons.campaign, size: 48)),
+  ),
+)
+```
+
+*(Tahap 2 selesai — audit performa, penerapan optimasi, dan verifikasi statis/test. Pengerjaan akan berlanjut ke **Tahap 3**.)*
+</blockquote>
+</details>
 

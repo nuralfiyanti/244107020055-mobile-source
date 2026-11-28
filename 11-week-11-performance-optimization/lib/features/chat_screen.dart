@@ -236,8 +236,6 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final chatState = ref.watch(_chatProvider);
-
     // Tampilkan error dialog saat errorMessage muncul
     ref.listen<_ChatState>(_chatProvider, (prev, next) {
       if (next.errorMessage != null &&
@@ -262,26 +260,48 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
       ),
       body: Column(
         children: [
-          _SecurityBanner(),
+          const _SecurityBanner(),
           Expanded(
-            child: chatState.messages.isEmpty
-                ? _EmptyState(onSetKey: _showApiKeyDialog)
-                : ListView.builder(
-                    controller: _scrollController,
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 12,
-                      vertical: 8,
-                    ),
-                    itemCount: chatState.messages.length,
-                    itemBuilder: (_, i) =>
-                        _MessageBubble(message: chatState.messages[i]),
+            child: Consumer(
+              builder: (context, ref, _) {
+                final messages = ref.watch(
+                  _chatProvider.select((s) => s.messages),
+                );
+                if (messages.isEmpty) {
+                  return _EmptyState(onSetKey: _showApiKeyDialog);
+                }
+                return ListView.builder(
+                  controller: _scrollController,
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 12,
+                    vertical: 8,
                   ),
+                  itemCount: messages.length,
+                  itemBuilder: (_, i) => RepaintBoundary(
+                    child: _MessageBubble(message: messages[i]),
+                  ),
+                );
+              },
+            ),
           ),
-          if (chatState.isLoading) const _TypingIndicator(),
-          _InputBar(
-            controller: _inputController,
-            isLoading: chatState.isLoading,
-            onSend: _send,
+          Consumer(
+            builder: (context, ref, _) {
+              final isLoading = ref.watch(
+                _chatProvider.select((s) => s.isLoading),
+              );
+              return Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  if (isLoading)
+                    const RepaintBoundary(child: _TypingIndicator()),
+                  _InputBar(
+                    controller: _inputController,
+                    isLoading: isLoading,
+                    onSend: _send,
+                  ),
+                ],
+              );
+            },
           ),
         ],
       ),
@@ -294,6 +314,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
 // ---------------------------------------------------------------------------
 
 class _SecurityBanner extends StatelessWidget {
+  const _SecurityBanner();
   @override
   Widget build(BuildContext context) {
     return Container(
