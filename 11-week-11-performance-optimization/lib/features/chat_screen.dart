@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -446,11 +448,18 @@ class _StreamingText extends StatefulWidget {
 class _StreamingTextState extends State<_StreamingText> {
   String _displayed = '';
   int _charIndex = 0;
+  Timer? _timer;
 
   @override
   void initState() {
     super.initState();
     _typeNext();
+  }
+
+  @override
+  void dispose() {
+    _timer?.cancel();
+    super.dispose();
   }
 
   void _typeNext() {
@@ -460,7 +469,9 @@ class _StreamingTextState extends State<_StreamingText> {
       _displayed = widget.text.substring(0, end);
       _charIndex = end;
     });
-    Future.delayed(const Duration(milliseconds: 18), _typeNext);
+    if (_charIndex < widget.text.length) {
+      _timer = Timer(const Duration(milliseconds: 18), _typeNext);
+    }
   }
 
   @override

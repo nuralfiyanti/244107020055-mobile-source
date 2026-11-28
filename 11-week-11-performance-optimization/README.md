@@ -225,3 +225,57 @@ CachedNetworkImage(
 </blockquote>
 </details>
 
+<details open>
+<summary><h3>8. Praktikum Tahap 3: Verifikasi Profiling, Memory Leak & Pengujian</h3></summary>
+<br>
+<blockquote>
+
+### Audit Lifecycle, `dispose()`, dan Batas Memori Cache
+
+| Komponen | Hasil Audit & Perbaikan |
+|---|---|
+| `ChatScreen` (`lib/features/chat_screen.dart`) | `_inputController`, `_scrollController`, `_MessageBubble._controller`, `_DotsLoader._ctrl`, dan `keyController` sudah di-`dispose()`. `_StreamingTextState` diperbaiki agar memakai `Timer?` yang dibatalkan di `dispose()` sehingga tidak memicu pembaruan state setelah widget ditutup. |
+| `PushService` (`lib/messaging/push_service.dart`) | Langganan `onTokenRefresh`, `onMessage`, dan `onMessageOpenedApp` disimpan ke daftar `StreamSubscription` dan dibersihkan melalui method `dispose()`. |
+| `PushController` (`lib/providers/push_provider.dart`) | `_tokenSubscription?.cancel()` sudah terdaftar di `ref.onDispose(...)`. |
+| `NotesPage` & `LoginPage` | `_searchController`, `_emailController`, dan `_passwordController` dibersihkan di `dispose()`. |
+| `_GetResponseCacheInterceptor` (`lib/data/api_client.dart`) & `NotesRepositoryImpl` | Cache in-memory dibatasi maksimal 50 entri (`_maxEntries = 50` / `_maxCacheEntries = 50`) dan entri kedaluwarsa dihapus otomatis untuk mencegah pertumbuhan memori tanpa batas. |
+| `CachedNetworkImage` (`lib/pages/announcement_page.dart`) | Menggunakan `memCacheWidth: 600` dan `memCacheHeight: 300` agar dekode bitmap sesuai ukuran tampil. |
+
+### Panduan Profiling Flutter DevTools (`flutter run --profile`)
+
+1. Jalankan aplikasi pada emulator atau perangkat fisik dalam mode profile:
+   ```bash
+   flutter run --profile
+   ```
+2. Buka tautan **Flutter DevTools** yang tampil di terminal pada browser.
+3. **Tab Performance (Flame Chart & Frame Time):**
+   - Klik **Record**, lakukan skenario: buka daftar catatan, scroll cepat, buka detail pengumuman, kembali, dan buka Chat AI.
+   - Klik **Stop**, lalu catat jumlah frame kuning/merah (*jank*), rata-rata frame time, dan fungsi teratas pada Flame Chart.
+   - Simpan tangkapan layar sebelum optimasi ke `screenshots/before-profile.png` dan sesudah optimasi ke `screenshots/after-profile.png`.
+4. **Tab Memory (Heap Snapshot & Leak Check):**
+   - Ambil **Heap Snapshot** awal saat berada di halaman daftar (`HomePage`).
+   - Lakukan navigasi ke halaman detail (`AnnouncementPage` / `NotesPage` / `ChatScreen`) lalu kembali ke daftar sebanyak **5 kali**.
+   - Ambil **Heap Snapshot** kedua dan bandingkan jumlah instance controller/widget; pastikan tidak ada lonjakan objek yang tertahan setelah navigasi kembali.
+
+![Before Profile](screenshots/before-profile.png)
+
+![After Profile](screenshots/after-profile.png)
+
+### Hasil Pengujian (`flutter analyze` & `flutter test`)
+
+1. **Analisis Statis (`flutter analyze`)**
+   ```text
+   Analyzing 11-week-11-performance-optimization...
+   No issues found! (ran in 197.8s)
+   ```
+
+2. **Unit Test & Widget Test (`flutter test -r compact`)**
+   Seluruh **51 test** lulus (`00:40 +51: All tests passed!`), termasuk 4 pengujian baru pada `test/performance_optimization_test.dart`:
+   - `NotesRepositoryImpl` mengembalikan salinan hasil dari `_searchCache` tanpa merusak cache internal.
+   - `Dio` `_GetResponseCacheInterceptor` meng-cache respons `GET` 200 selama TTL dan melewati cache saat `skipCache: true`.
+   - `NotesPage` melakukan filter pencarian dan membersihkan `TextEditingController` saat widget dilepas.
+   - `ChatScreen` membatalkan `Timer` pada `_StreamingText` dengan bersih saat widget di-`dispose()` di tengah animasi streaming.
+
+</blockquote>
+</details>
+

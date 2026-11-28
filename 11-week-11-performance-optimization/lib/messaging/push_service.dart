@@ -134,6 +134,7 @@ class PushService {
   final FirebaseMessaging? _messagingOverride;
   final FlutterLocalNotificationsPlugin _notifications;
   late final FirebaseMessaging _messaging;
+  final List<StreamSubscription<dynamic>> _subscriptions = [];
 
   Future<String?> initialize({
     TokenHandler? onToken,
@@ -161,19 +162,32 @@ class PushService {
 
     final token = await _messaging.getToken();
     if (token != null && onToken != null) await onToken(token);
-    _messaging.onTokenRefresh.listen((value) async {
-      if (onToken != null) await onToken(value);
-    });
-
-    FirebaseMessaging.onMessage.listen(
-      (message) => _showForegroundNotification(message, onRoute),
-    );
-    FirebaseMessaging.onMessageOpenedApp.listen(
-      (message) => _handleRoute(message, onRoute),
-    );
+    _subscriptions
+      ..add(
+        _messaging.onTokenRefresh.listen((value) async {
+          if (onToken != null) await onToken(value);
+        }),
+      )
+      ..add(
+        FirebaseMessaging.onMessage.listen(
+          (message) => _showForegroundNotification(message, onRoute),
+        ),
+      )
+      ..add(
+        FirebaseMessaging.onMessageOpenedApp.listen(
+          (message) => _handleRoute(message, onRoute),
+        ),
+      );
 
     final initialMessage = await _messaging.getInitialMessage();
     return initialMessage == null ? null : _routeFromMessage(initialMessage);
+  }
+
+  Future<void> dispose() async {
+    for (final sub in _subscriptions) {
+      await sub.cancel();
+    }
+    _subscriptions.clear();
   }
 
   Future<void> _initializeLocalNotifications(RouteHandler? onRoute) async {

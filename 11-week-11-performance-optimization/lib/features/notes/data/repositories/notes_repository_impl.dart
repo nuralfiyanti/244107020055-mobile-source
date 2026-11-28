@@ -27,6 +27,7 @@ class NotesRepositoryImpl implements NotesRepository {
   ];
 
   /// Cache hasil pencarian in-memory (normalized query -> hasil filter).
+  static const int _maxCacheEntries = 50;
   final Map<String, List<Note>> _searchCache = {};
 
   @override
@@ -47,6 +48,9 @@ class NotesRepositoryImpl implements NotesRepository {
         return note.title.toLowerCase().contains(normalizedQuery);
       }).toList();
 
+      if (_searchCache.length >= _maxCacheEntries) {
+        _searchCache.remove(_searchCache.keys.first);
+      }
       _searchCache[normalizedQuery] = results;
       return (List<Note>.from(results), null);
     } catch (e) {

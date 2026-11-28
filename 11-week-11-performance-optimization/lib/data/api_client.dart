@@ -13,15 +13,20 @@ class _CacheEntry {
 /// Interceptor cache in-memory ringan untuk request GET yang sukses (TTL 30 detik).
 class _GetResponseCacheInterceptor extends Interceptor {
   static const Duration _ttl = Duration(seconds: 30);
+  static const int _maxEntries = 50;
   final Map<String, _CacheEntry> _cache = {};
 
   @override
   void onRequest(RequestOptions options, RequestInterceptorHandler handler) {
     if (options.method.toUpperCase() == 'GET' &&
         options.extra['skipCache'] != true) {
-      final entry = _cache[options.uri.toString()];
-      if (entry != null && DateTime.now().difference(entry.cachedAt) < _ttl) {
-        return handler.resolve(entry.response);
+      final key = options.uri.toString();
+      final entry = _cache[key];
+      if (entry != null) {
+        if (DateTime.now().difference(entry.cachedAt) < _ttl) {
+          return handler.resolve(entry.response);
+        }
+        _cache.remove(key);
       }
     }
     handler.next(options);
@@ -34,6 +39,9 @@ class _GetResponseCacheInterceptor extends Interceptor {
   ) {
     if (response.requestOptions.method.toUpperCase() == 'GET' &&
         response.statusCode == 200) {
+      if (_cache.length >= _maxEntries) {
+        _cache.remove(_cache.keys.first);
+      }
       _cache[response.requestOptions.uri.toString()] = _CacheEntry(
         response: response,
         cachedAt: DateTime.now(),
